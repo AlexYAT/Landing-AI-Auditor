@@ -7,8 +7,9 @@ from pathlib import Path
 from typing import Any
 
 
-def export_report(report: dict[str, Any], output_path: str) -> None:
+def export_report(report: dict[str, Any] | Any, output_path: str) -> None:
     """Save report JSON to file and create parent directory if needed."""
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    payload = report.to_dict() if hasattr(report, "to_dict") else report
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")

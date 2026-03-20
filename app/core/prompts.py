@@ -1,39 +1,72 @@
 """Prompt templates for LLM landing page audit."""
 
+import json
+
 SYSTEM_PROMPT = """
-You are a strict conversion-focused landing page auditor.
-You MUST use only the provided parsed page data. Do not invent any facts.
-If evidence is insufficient, explicitly mention that in issue evidence/rationale.
+You are a Senior conversion rate optimization auditor for landing pages.
 
-Analyze from conversion perspective:
+Guardrails:
+- Analyze ONLY from supplied parsed landing data and user_task.
+- Do NOT fabricate facts, metrics, UX test outcomes, or user behavior claims.
+- Do NOT use unsupported certainty. If evidence is missing, state this explicitly in assessment/evidence.
+- Recommendations must be practical and implementation-ready.
+- Avoid pixel-perfect micro-advice (e.g. move button by exact pixels).
+
+Evaluation focus:
 - Clarity of value proposition
-- CTA quality and hierarchy
-- Friction in forms and flow
-- Trust and credibility signals
-- Content structure and readability
+- CTA strength and prominence
+- Trust and credibility
+- Friction and cognitive load
+- Structure and scannability
+- Forms friction
+- Relevance to user_task
 
-Return STRICT JSON only. No markdown, no explanations outside JSON.
+Allowed issue categories only:
+- clarity
+- cta
+- trust
+- friction
+- structure
+- forms
+- offer
+- other
+
+Return STRICT JSON only.
+- No markdown.
+- No code fences.
+- No text before or after JSON.
+- Always return all top-level keys with correct types.
+
 JSON schema:
 {
-  "summary": "string",
+  "summary": {
+    "overall_assessment": "string",
+    "primary_conversion_goal_guess": "string",
+    "top_strengths": ["string"],
+    "top_risks": ["string"]
+  },
   "issues": [
     {
+      "id": "string",
       "title": "string",
-      "severity": "low|medium|high",
+      "severity": "high|medium|low",
+      "category": "clarity|cta|trust|friction|structure|forms|offer|other",
       "evidence": "string",
-      "impact": "string"
+      "impact": "string",
+      "recommendation": "string"
     }
   ],
   "recommendations": [
     {
+      "priority": "high|medium|low",
       "title": "string",
-      "rationale": "string",
-      "expected_impact": "string",
-      "priority": "low|medium|high"
+      "action": "string",
+      "expected_impact": "string"
     }
   ],
   "quick_wins": [
     {
+      "title": "string",
       "action": "string",
       "why_it_matters": "string"
     }
@@ -48,6 +81,6 @@ def build_user_prompt(parsed_data: dict, user_task: str) -> str:
         "User task:\n"
         f"{user_task}\n\n"
         "Parsed landing data (JSON):\n"
-        f"{parsed_data}\n\n"
-        "Generate the audit report according to the required JSON schema."
+        f"{json.dumps(parsed_data, ensure_ascii=False)}\n\n"
+        "Generate the audit report using only this data and return strict JSON."
     )

@@ -18,25 +18,35 @@ def run() -> int:
     parser = build_parser()
     args = parser.parse_args()
     settings = get_settings()
+    verbose = bool(args.verbose)
+
+    def _log(step: str) -> None:
+        if verbose:
+            print(f"[verbose] {step}")
 
     try:
+        _log("fetching")
+        _log("parsing")
         parsed_landing = parse_landing(url=args.url, settings=settings)
+        _log("analyzing")
         provider = OpenAiAuditProvider(settings=settings)
         audit_result = analyze_landing(
             parsed_landing=parsed_landing.to_dict(),
             user_task=args.task,
             provider=provider,
         )
+        _log("exporting")
+        export_report(report=audit_result, output_path=args.output)
         report = audit_result.to_dict()
-        export_report(report=report, output_path=args.output)
         print(json.dumps(report, ensure_ascii=False, indent=2))
-        print(f"\nReport saved to: {args.output}")
+        print("Audit completed successfully")
+        print(f"Output saved to: {args.output}")
         return 0
     except (ParsingError, LlmProviderError, AnalyzerError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     except Exception as exc:
-        print(f"Unexpected error: {exc}", file=sys.stderr)
+        print(f"Error: unexpected failure while processing audit: {exc}", file=sys.stderr)
         return 1
 
 

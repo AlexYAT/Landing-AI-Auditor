@@ -15,4 +15,9 @@ def build_parser() -> argparse.ArgumentParser:
         default="output/report.json",
         help="Output JSON path (default: output/report.json)",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logs for pipeline steps",
+    )
     return parser
