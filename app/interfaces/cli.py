@@ -37,4 +37,9 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Response language: ru or en (default from DEFAULT_LANG env, else ru)",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Save raw.html and extracted_text.txt under output/debug/<host> and log encoding/text preview",
+    )
     return parser

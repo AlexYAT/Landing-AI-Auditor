@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 import re
+from pathlib import Path
+from typing import Any
 from urllib.parse import urljoin, urlparse, urlunparse
 
 import requests
@@ -49,6 +52,9 @@ CONTACT_KEYWORDS = (
     "contact",
     "contacts",
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class ParsingError(Exception):
@@ -109,6 +115,150 @@ def fetch_html(url: str, timeout: int) -> Response:
         raise ParsingError("Page is too large to process safely.")
 
     return response
+
+
+def _charset_from_content_type(content_type: str | None) -> str | None:
+    """Parse charset from Content-Type header."""
+    if not content_type or "charset=" not in content_type.lower():
+        return None
+    try:
+        part = content_type.split("charset=")[1].split(";")[0].strip().strip('"').strip("'")
+        return part or None
+    except IndexError:
+        return None
+
+
+def decode_response_html(response: Response) -> tuple[str, dict[str, str | None]]:
+    """
+    Decode HTML from raw bytes using a safe candidate order.
+
+    Avoid relying on ``response.text`` alone when the declared encoding is wrong.
+    Generic ISO-8859-1 / Latin-1 headers are often wrong for UTF-8 sites; try apparent + utf-8 first.
+    """
+    raw: bytes = response.content
+    header_cs = _charset_from_content_type(response.headers.get("Content-Type"))
+    meta: dict[str, str | None] = {
+        "status_code": str(response.status_code),
+        "header_encoding": response.encoding,
+        "apparent_encoding": response.apparent_encoding,
+        "charset_from_content_type": header_cs,
+    }
+
+    _LOW_TRUST = frozenset(
+        {"iso-8859-1", "latin-1", "windows-1252", "cp1252", "us-ascii"},
+    )
+
+    def _norm(enc: str | None) -> str | None:
+        if not enc or str(enc).lower() in {"none", "7bit", "8bit", "binary"}:
+            return None
+        return str(enc).lower().replace("utf8", "utf-8")
+
+    candidates: list[str] = []
+    seen: set[str] = set()
+
+    def _add(enc: str | None) -> None:
+        n = _norm(enc)
+        if n and n not in seen:
+            seen.add(n)
+            candidates.append(n)
+
+    # High trust first: chardet guess + UTF-8 (common for modern HTML)
+    _add(response.apparent_encoding)
+    _add("utf-8")
+
+    for c in (header_cs, response.encoding):
+        n = _norm(c)
+        if n and n not in _LOW_TRUST:
+            _add(c)
+
+    for c in (header_cs, response.encoding):
+        n = _norm(c)
+        if n and n in _LOW_TRUST:
+            _add(c)
+
+    for enc in candidates:
+        try:
+            text = raw.decode(enc)
+            meta["used_encoding"] = enc
+            return text, meta
+        except (LookupError, UnicodeDecodeError):
+            continue
+
+    text = raw.decode("utf-8", errors="replace")
+    meta["used_encoding"] = "utf-8-replace"
+    return text, meta
+
+
+def _text_quality_score(ratio_rep: float, ratio_ctl: float, letter_ratio: float, char_count: int) -> float:
+    """
+    Normalized 0.0–1.0 score from the same ratios used for quality_hint (practical heuristic).
+
+    Higher = cleaner, more readable extracted text for auditing.
+    """
+    if char_count <= 0:
+        return 0.0
+    score = 1.0
+    # Replacement characters (strong signal of decode/extraction damage)
+    score -= min(0.6, ratio_rep * 100.0)
+    # Control characters
+    score -= min(0.45, ratio_ctl * 40.0)
+    # Very low letter/symbol density suggests garbage or broken text
+    score -= max(0.0, 0.42 - letter_ratio * 3.5)
+    return round(max(0.0, min(1.0, score)), 4)
+
+
+def assess_visible_text_quality(text: str) -> dict[str, Any]:
+    """
+    Heuristic for whether extracted text looks like normal human-readable content.
+
+    Returns quality_hint, ratio metrics, and text_quality_score (0.0-1.0) for audit_meta / UI.
+    """
+    if not text:
+        return {
+            "quality_hint": "empty",
+            "replacement_char_ratio": 0.0,
+            "control_char_ratio": 0.0,
+            "letter_ratio": 0.0,
+            "character_count": 0,
+            "text_quality_score": 0.0,
+        }
+
+    n = len(text)
+    replacement = text.count("\ufffd")
+    control_bad = len(re.findall(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", text))
+    letters = len(re.findall(r"[\wА-Яа-яЁёĀ-ž]", text, re.UNICODE))
+
+    ratio_rep = replacement / n
+    ratio_ctl = control_bad / n
+    letter_ratio = letters / n
+
+    if ratio_rep > 0.005 or ratio_ctl > 0.01 or letter_ratio < 0.05:
+        quality = "poor"
+    elif ratio_rep > 0.0008 or ratio_ctl > 0.003:
+        quality = "uncertain"
+    else:
+        quality = "good"
+
+    tqs = _text_quality_score(ratio_rep, ratio_ctl, letter_ratio, n)
+
+    return {
+        "quality_hint": quality,
+        "replacement_char_ratio": round(ratio_rep, 6),
+        "control_char_ratio": round(ratio_ctl, 6),
+        "letter_ratio": round(letter_ratio, 4),
+        "character_count": n,
+        "text_quality_score": tqs,
+    }
+
+
+def strip_non_content_tags(soup: BeautifulSoup) -> None:
+    """Remove tags that should not contribute to visible text (in-place)."""
+    for tag_name in ("script", "style", "noscript", "svg", "iframe", "template", "link", "meta"):
+        for tag in soup.find_all(tag_name):
+            tag.decompose()
+
+    for tag in soup.find_all("script", type=re.compile(r"ld\+json", re.I)):
+        tag.decompose()
 
 
 def extract_meta(soup: BeautifulSoup, final_url: str) -> dict[str, str]:
@@ -278,8 +428,7 @@ def extract_links(soup: BeautifulSoup, final_url: str, max_links: int = MAX_LINK
 def extract_text(soup: BeautifulSoup, max_chars: int) -> str:
     """Extract visible text excerpt and trim noisy spaces."""
     soup_copy = BeautifulSoup(str(soup), "html.parser")
-    for unwanted in soup_copy(["script", "style", "noscript"]):
-        unwanted.decompose()
+    strip_non_content_tags(soup_copy)
 
     chunks: list[str] = []
     for text in soup_copy.stripped_strings:
@@ -330,13 +479,19 @@ def detect_page_signals(soup: BeautifulSoup, visible_text: str) -> dict[str, lis
     }
 
 
-def parse_landing(url: str, settings: Settings) -> ParsedLanding:
+def parse_landing(
+    url: str,
+    settings: Settings,
+    debug_dir: str | Path | None = None,
+) -> ParsedLanding:
     """Download and parse a landing page into structured model."""
     normalized_url = normalize_url(url)
     response = fetch_html(url=normalized_url, timeout=settings.request_timeout)
     final_url = _safe_text(response.url)
     content_type = _safe_text(response.headers.get("Content-Type"))
-    soup = BeautifulSoup(response.text, "html.parser")
+    html_text, decode_meta = decode_response_html(response)
+    soup = BeautifulSoup(html_text, "html.parser")
+    strip_non_content_tags(soup)
 
     meta = extract_meta(soup=soup, final_url=final_url)
     headings = extract_headings(soup=soup)
@@ -345,6 +500,37 @@ def parse_landing(url: str, settings: Settings) -> ParsedLanding:
     internal_links, external_links = extract_links(soup=soup, final_url=final_url)
     visible_text_excerpt = extract_text(soup=soup, max_chars=settings.max_text_chars)
     signals = detect_page_signals(soup=soup, visible_text=visible_text_excerpt)
+    text_quality = assess_visible_text_quality(visible_text_excerpt)
+    audit_meta: dict[str, Any] = {
+        "decoding": decode_meta,
+        "visible_text_quality": text_quality,
+        "quality_hint": text_quality.get("quality_hint"),
+        "text_quality_score": text_quality.get("text_quality_score"),
+    }
+
+    if debug_dir is not None:
+        dbg = Path(debug_dir)
+        dbg.mkdir(parents=True, exist_ok=True)
+        (dbg / "raw.html").write_text(html_text, encoding="utf-8", errors="replace")
+        (dbg / "extracted_text.txt").write_text(visible_text_excerpt, encoding="utf-8", errors="replace")
+        preview_len = min(2000, len(visible_text_excerpt))
+        preview = visible_text_excerpt[:preview_len]
+        # Console-safe line (Windows cp1251 etc.): real text is in output/debug/.../extracted_text.txt
+        preview_safe = preview.encode("ascii", errors="backslashreplace").decode("ascii")
+        logger.info(
+            "Parser debug: status_code=%s response.encoding=%s apparent_encoding=%s used_encoding=%s "
+            "text_quality_hint=%s",
+            decode_meta.get("status_code"),
+            decode_meta.get("header_encoding"),
+            decode_meta.get("apparent_encoding"),
+            decode_meta.get("used_encoding"),
+            text_quality.get("quality_hint"),
+        )
+        logger.info(
+            "Parser debug: clean_text preview (first %s chars, ASCII-escaped for logs):\n%s",
+            preview_len,
+            preview_safe,
+        )
 
     return ParsedLanding(
         original_url=normalized_url,
@@ -372,4 +558,6 @@ def parse_landing(url: str, settings: Settings) -> ParsedLanding:
         social_proof_signals=signals["social_proof_signals"],
         trust_signals=signals["trust_signals"],
         contact_signals=signals["contact_signals"],
+        audit_meta=audit_meta,
+        text_quality_score=float(text_quality.get("text_quality_score") or 0.0),
     )

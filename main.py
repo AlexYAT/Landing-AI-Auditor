@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import logging
 import sys
+from pathlib import Path
+from urllib.parse import urlparse
 
 from app.core.config import get_settings
 from app.core.lang import resolve_effective_lang, used_language_fallback
@@ -44,7 +46,16 @@ def run() -> int:
 
         _log("fetching")
         _log("parsing")
-        parsed_landing = parse_landing(url=args.url, settings=settings)
+        debug_dir: Path | None = None
+        if getattr(args, "debug", False):
+            host = urlparse(args.url).netloc.replace(":", "_") or "unknown"
+            debug_dir = Path("output") / "debug" / host
+            logger.info("Debug mode: writing parser artifacts to %s", debug_dir)
+        parsed_landing = parse_landing(
+            url=args.url,
+            settings=settings,
+            debug_dir=debug_dir,
+        )
         _log("analyzing")
         provider = OpenAiAuditProvider(settings=settings)
         audit_result = analyze_landing(

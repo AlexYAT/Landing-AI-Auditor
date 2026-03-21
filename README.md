@@ -88,6 +88,16 @@ python main.py --url "https://example.com" --task "Improve conversion"
 python main.py --url "https://example.com" --task "Check CTA" --output output/report.json --verbose
 ```
 
+### Debug (`--debug`)
+
+Для диагностики **декодирования и извлечения текста** (ложные срабатывания про «кодировку»):
+
+```bash
+python main.py --url "https://example.com" --output output/report.json --debug
+```
+
+В каталоге `output/debug/<хост>/` сохраняются `raw.html` и `extracted_text.txt`; в лог пишутся `status_code`, выбранная кодировка, `header_encoding`, `apparent_encoding`, фрагмент чистого текста. В данных парсера (и в JSON при передаче в LLM) в `audit_meta` есть `visible_text_quality`, `quality_hint` и **`text_quality_score`** (0.0–1.0, грубая инженерная оценка чистоты извлечённого текста; дублируется полем `text_quality_score` у корня `parsed_landing`). Системный промпт явно учитывает `quality_hint`, чтобы не заявлять о битой кодировке при `good`.
+
 ### Пример JSON
 
 Full mode добавляет поле `language` (effective lang) в JSON:

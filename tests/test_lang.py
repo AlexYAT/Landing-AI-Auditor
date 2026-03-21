@@ -116,6 +116,18 @@ class TestPrompts(unittest.TestCase):
         text_en = build_system_prompt("en")
         self.assertIn("ignore", text_en.lower())
 
+    def test_quality_hint_good_guidance_in_system_prompt(self) -> None:
+        text = build_system_prompt("en")
+        self.assertIn('quality_hint is "good"', text)
+        self.assertIn("Do NOT claim broken encoding", text)
+        self.assertIn("Do NOT state that the page text is unreadable", text)
+        self.assertIn("text_quality_score (0.0-1.0)", text)
+
+    def test_quality_hint_poor_guidance_in_system_prompt(self) -> None:
+        text = build_system_prompt("ru")
+        self.assertIn('quality_hint is "poor" or "empty"', text)
+        self.assertIn("limits how precisely you can judge", text)
+
     def test_user_prompt_task_aware_ru(self) -> None:
         body = build_user_prompt({"a": 1}, "увеличить заявки", lang="ru")
         self.assertIn("Пользовательская задача", body)

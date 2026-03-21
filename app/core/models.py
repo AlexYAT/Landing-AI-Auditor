@@ -55,6 +55,9 @@ class ParsedLanding:
     social_proof_signals: list[str]
     trust_signals: list[str]
     contact_signals: list[str]
+    audit_meta: dict[str, Any] = field(default_factory=dict)
+    # Mirrors audit_meta["text_quality_score"] (0.0–1.0) for API/UI convenience.
+    text_quality_score: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         """Convert model to dictionary."""

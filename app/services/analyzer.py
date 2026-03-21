@@ -10,6 +10,8 @@ from app.core.user_task import sanitize_user_task
 from app.core.models import AuditIssue, AuditResult, AuditSummary, QuickWin, Recommendation
 from app.providers.llm import OpenAiAuditProvider
 
+logger = logging.getLogger(__name__)
+
 
 class AnalyzerError(Exception):
     """Raised when audit analysis fails validation."""

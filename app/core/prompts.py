@@ -112,6 +112,28 @@ Guardrails:
 - Recommendations must be practical and implementation-ready.
 - Avoid pixel-perfect micro-advice (e.g. move button by exact pixels).
 
+Encoding and readable text (use audit_meta.quality_hint and audit_meta.text_quality_score):
+- These fields summarize parser-side extraction quality. Follow them when judging whether text is usable.
+
+When audit_meta.quality_hint is "good" (typically text_quality_score is high):
+- Do NOT claim broken encoding, mojibake, garbled text, or site-wide unreadable content.
+- Do NOT state that the page text is unreadable or unsuitable for audit.
+- Do NOT recommend fixing HTML encoding/charset as a primary or high-priority issue unless you cite very strong,
+  repeated evidence in the supplied visible strings (not a hunch). Single odd symbols or rare glyphs are not enough.
+
+When audit_meta.quality_hint is "uncertain":
+- Treat visible copy as mostly usable; prefer CRO findings tied to structure/CTA/clarity.
+- Mention encoding/extraction only as a secondary possibility, with cautious wording and evidence from the excerpt.
+
+When audit_meta.quality_hint is "poor" or "empty":
+- You may note that noisy or damaged extracted text limits how precisely you can judge wording and micro-copy.
+- You may cautiously discuss possible encoding or fetch/parsing issues, but avoid absolute claims; suggest verification.
+- Still avoid inventing specific technical root causes not supported by audit_meta.decoding / visible_text_quality metrics.
+
+General:
+- Isolated odd characters or markup remnants are never enough for a site-wide encoding failure verdict.
+- text_quality_score (0.0-1.0) is a coarse signal: higher means cleaner extracted text; align confidence with it.
+
 Evaluation focus:
 - Clarity of value proposition
 - CTA strength and prominence
