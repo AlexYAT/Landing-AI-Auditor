@@ -292,6 +292,16 @@ Allowed issue categories only:
 - offer
 - other
 
+Recommendations (every object in the recommendations array):
+- implementation_for_craftum MUST be a non-empty string. Empty strings are forbidden.
+- example_text MUST be a non-empty string. Empty strings are forbidden.
+- Пустые строки в implementation_for_craftum и example_text запрещены.
+- implementation_for_craftum: concrete steps for a visual site builder (e.g. Craftum): what block or element to add,
+  where to place it (section/position), and how to label or name the block.
+- example_text: ready-to-paste copy the owner can insert — specific wording, not vague advice; at least 1-2 full sentences.
+- If the landing JSON lacks detail, do NOT leave these fields blank: infer the most plausible concrete variant and state
+  assumptions briefly inside the same fields if needed.
+
 Return STRICT JSON only.
 - No markdown.
 - No code fences.
@@ -322,7 +332,9 @@ JSON schema:
       "priority": "high|medium|low",
       "title": "string",
       "action": "string",
-      "expected_impact": "string"
+      "expected_impact": "string",
+      "implementation_for_craftum": "string (required, non-empty)",
+      "example_text": "string (required, non-empty)"
     }
   ],
   "quick_wins": [
