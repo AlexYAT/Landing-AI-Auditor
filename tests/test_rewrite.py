@@ -64,6 +64,18 @@ class TestRewriteCli(unittest.TestCase):
         )
         self.assertEqual(args.output_format, "readable")
 
+    def test_save_report_optional(self) -> None:
+        p = build_parser()
+        args = p.parse_args(["--url", "https://example.com"])
+        self.assertIsNone(args.save_report)
+
+    def test_save_report_path(self) -> None:
+        p = build_parser()
+        args = p.parse_args(
+            ["--url", "https://example.com", "--save-report", "out/audit.md"],
+        )
+        self.assertEqual(args.save_report, "out/audit.md")
+
     def test_invalid_rewrite_target_rejected(self) -> None:
         p = build_parser()
         buf = io.StringIO()

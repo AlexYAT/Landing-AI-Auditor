@@ -65,4 +65,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="json",
         help="Console output in full mode: json (default) or human-readable report",
     )
+    parser.add_argument(
+        "--save-report",
+        dest="save_report",
+        default=None,
+        metavar="PATH",
+        help="Save analysis to PATH (JSON or markdown-like text per --output-format)",
+    )
     return parser

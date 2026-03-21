@@ -42,27 +42,67 @@ def _summary_text_for_console(summary: Any) -> str:
     return str(summary)
 
 
-def _print_quick_win_line(item: Any) -> None:
+def _readable_payload(report: dict[str, Any]) -> dict[str, Any]:
+    """``report_readable`` dict or ``build_human_report(report)``."""
+    rr = report.get("report_readable")
+    if isinstance(rr, dict):
+        return rr
+    return build_human_report(report)
+
+
+def _format_quick_win_line(item: Any) -> str:
     if isinstance(item, dict):
         title = str(item.get("title", "")).strip()
         action = str(item.get("action", "")).strip()
         if title and action:
-            print(f"- {title}: {action}")
-        elif title:
-            print(f"- {title}")
-        elif action:
-            print(f"- {action}")
-        else:
-            print(f"- {item}")
+            return f"- {title}: {action}"
+        if title:
+            return f"- {title}"
+        if action:
+            return f"- {action}"
+        return f"- {item}"
+    return f"- {item}"
+
+
+def _print_quick_win_line(item: Any) -> None:
+    print(_format_quick_win_line(item))
+
+
+def _build_readable_markdown(report: dict[str, Any]) -> str:
+    """Markdown-like file body for ``--save-report`` with ``--output-format readable``."""
+    rr = _readable_payload(report)
+    parts: list[str] = [
+        "# Summary",
+        _summary_text_for_console(rr.get("summary")),
+        "",
+        "# Issues",
+    ]
+    for line in rr.get("issues_readable") or []:
+        parts.append(f"- {line}")
+    parts.extend(["", "# Recommendations"])
+    blocks = rr.get("recommendations_readable") or []
+    for i, block in enumerate(blocks):
+        if i > 0:
+            parts.append("")
+        parts.append(block)
+    parts.extend(["", "# Quick Wins"])
+    for item in rr.get("quick_wins") or []:
+        parts.append(_format_quick_win_line(item))
+    return "\n".join(parts)
+
+
+def _write_saved_report(path_str: str, report: dict[str, Any], output_format: str) -> None:
+    path = Path(path_str)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if output_format == "readable":
+        path.write_text(_build_readable_markdown(report), encoding="utf-8")
     else:
-        print(f"- {item}")
+        path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _print_readable_console(report: dict[str, Any]) -> None:
     """Print ``report_readable`` (or rebuild via ``build_human_report``) to stdout."""
-    rr = report.get("report_readable")
-    if not isinstance(rr, dict):
-        rr = build_human_report(report)
+    rr = _readable_payload(report)
 
     print("=== SUMMARY ===")
     print(_summary_text_for_console(rr.get("summary")))
@@ -160,6 +200,15 @@ def run() -> int:
             _print_readable_console(report)
         else:
             print(json.dumps(report, ensure_ascii=False, indent=2))
+
+        save_path = getattr(args, "save_report", None)
+        if save_path:
+            _write_saved_report(
+                save_path,
+                report,
+                getattr(args, "output_format", "json"),
+            )
+            logger.info("Report saved to %s", save_path)
 
         if mode == "full":
             _log("exporting")
