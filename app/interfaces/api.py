@@ -136,7 +136,10 @@ class AuditSuccessResponse(BaseModel):
     )
     report_readable: dict[str, Any] | None = Field(
         default=None,
-        description="Human-readable presentation (summary, issues_readable, recommendations_readable, quick_wins)",
+        description=(
+            "Human-readable presentation (summary, issues_readable, recommendations_readable, "
+            "quick_wins, rewrite_texts_readable)"
+        ),
     )
 
 

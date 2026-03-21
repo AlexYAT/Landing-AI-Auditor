@@ -4,6 +4,20 @@ from __future__ import annotations
 
 from typing import Any
 
+_REWRITE_KEYS = ("hero", "cta", "trust")
+
+
+def _normalize_rewrite_texts_readable(report: dict) -> dict[str, str]:
+    """Hero/cta/trust strings for human-readable views; safe when missing or malformed."""
+    raw = report.get("rewrite_texts")
+    if not isinstance(raw, dict):
+        return {k: "" for k in _REWRITE_KEYS}
+    out: dict[str, str] = {}
+    for key in _REWRITE_KEYS:
+        v = raw.get(key)
+        out[key] = str(v).strip() if v is not None else ""
+    return out
+
 
 def _issue_line(item: dict[str, Any]) -> str:
     severity = str(item.get("severity", "")).strip().upper() or "?"
@@ -55,4 +69,5 @@ def build_human_report(report: dict) -> dict:
         "issues_readable": issues_readable,
         "recommendations_readable": recommendations_readable,
         "quick_wins": report.get("quick_wins", []),
+        "rewrite_texts_readable": _normalize_rewrite_texts_readable(report),
     }

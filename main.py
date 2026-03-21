@@ -50,6 +50,16 @@ def _readable_payload(report: dict[str, Any]) -> dict[str, Any]:
     return build_human_report(report)
 
 
+def _rewrite_texts_readable_nonempty(rr: dict[str, Any]) -> bool:
+    rt = rr.get("rewrite_texts_readable")
+    if not isinstance(rt, dict):
+        return False
+    for key in ("hero", "cta", "trust"):
+        if str(rt.get(key, "")).strip():
+            return True
+    return False
+
+
 def _format_quick_win_line(item: Any) -> str:
     if isinstance(item, dict):
         title = str(item.get("title", "")).strip()
@@ -88,6 +98,25 @@ def _build_readable_markdown(report: dict[str, Any]) -> str:
     parts.extend(["", "# Quick Wins"])
     for item in rr.get("quick_wins") or []:
         parts.append(_format_quick_win_line(item))
+    if _rewrite_texts_readable_nonempty(rr):
+        rt = rr.get("rewrite_texts_readable")
+        if not isinstance(rt, dict):
+            rt = {}
+        parts.extend(
+            [
+                "",
+                "# Rewrites",
+                "",
+                "## Hero",
+                str(rt.get("hero", "")),
+                "",
+                "## CTA",
+                str(rt.get("cta", "")),
+                "",
+                "## Trust",
+                str(rt.get("trust", "")),
+            ]
+        )
     return "\n".join(parts)
 
 
@@ -121,6 +150,20 @@ def _print_readable_console(report: dict[str, Any]) -> None:
     print("=== QUICK WINS ===")
     for item in rr.get("quick_wins") or []:
         _print_quick_win_line(item)
+    if _rewrite_texts_readable_nonempty(rr):
+        rt = rr.get("rewrite_texts_readable")
+        if not isinstance(rt, dict):
+            rt = {}
+        print()
+        print("=== REWRITES ===")
+        print("Hero:")
+        print(rt.get("hero", ""))
+        print()
+        print("CTA:")
+        print(rt.get("cta", ""))
+        print()
+        print("Trust:")
+        print(rt.get("trust", ""))
 
 
 def _print_assignment_rewrites(report: dict[str, Any], lang: str) -> None:
