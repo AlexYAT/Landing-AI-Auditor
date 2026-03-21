@@ -21,6 +21,17 @@ from app.services.parser import ParsingError, parse_landing
 logger = logging.getLogger(__name__)
 
 
+def _configure_stdio_utf8() -> None:
+    """Reduce UnicodeEncodeError on Windows (cp1251) when printing Russian JSON to console."""
+    for stream in (sys.stdout, sys.stderr):
+        reconf = getattr(stream, "reconfigure", None)
+        if callable(reconf):
+            try:
+                reconf(encoding="utf-8", errors="replace")
+            except (OSError, ValueError, AttributeError):
+                pass
+
+
 def _print_assignment_rewrites(report: dict[str, Any], lang: str) -> None:
     """Print rewrite blocks after five assignment lines (order matches normalized report)."""
     items = report.get("rewrites")
@@ -120,5 +131,6 @@ def run() -> int:
 
 
 if __name__ == "__main__":
+    _configure_stdio_utf8()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     raise SystemExit(run())
