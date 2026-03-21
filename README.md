@@ -4,7 +4,7 @@ CLI tool for conversion-focused landing page audits. Can be used as:
 - **Assignment mode** — учебное задание «Агент: Подсказки по редизайну лендинга»: принимает URL, выводит 5 рекомендаций
 - **Full audit mode** — расширенный JSON-отчет для production-аудита
 
-**Stack:** Python ≥ 3.10, requests, beautifulsoup4, openai, tenacity, python-dotenv.
+**Stack:** Python ≥ 3.10, requests, beautifulsoup4, openai, tenacity, python-dotenv; опционально **FastAPI + Uvicorn** для HTTP API.
 
 ## Language (`--lang`)
 
@@ -158,13 +158,48 @@ MAX_TEXT_CHARS=12000
 DEFAULT_LANG=ru
 ```
 
+## HTTP API (FastAPI)
+
+Минимальный слой **без авторизации и БД**; повторяет пайплайн CLI через `app.services.audit_pipeline.run_landing_audit` (parse → OpenAI → нормализованный JSON). Фоновых задач и хранения данных нет.
+
+**Запуск:**
+
+```bash
+pip install -r requirements.txt
+uvicorn app.interfaces.api:app --host 127.0.0.1 --port 8000
+```
+
+**Проверка живости (`GET /health`):**
+
+```bash
+curl -s http://127.0.0.1:8000/health
+```
+
+Ответ: `{"status":"ok"}`.
+
+**Аудит (`POST /audit`):**
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/audit -H "Content-Type: application/json" -d "{\"url\":\"https://example.com\",\"task\":\"Increase signups\",\"lang\":\"en\",\"rewrite\":[\"hero\",\"cta\"],\"debug\":false}"
+```
+
+Тело JSON: `url` (обязателен), опционально `task`, `lang` (только `ru` или `en`; иначе `422`), `rewrite` (массив из `hero` \| `cta` \| `trust`; пустой массив `[]` — как без переписи), `debug` (по умолчанию `false`). Ответ — тот же объект, что и в full mode CLI (включая `rewrites` и `language`).
+
+Ошибки домена: `400` (парсинг/загрузка), `502` (LLM), `500` (анализ/внутренняя). Тело ошибки — плоский JSON: `{"error":"<code>","message":"<text>"}` (без обёртки `detail`).
+
+**Документация OpenAPI:** после запуска сервера откройте [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) (Swagger UI) или [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc).
+
+**CLI** по-прежнему основной способ: `python main.py ...`
+
 ## Architecture
 
 - `parser` — fetch и парсинг HTML через requests + BeautifulSoup
+- `audit_pipeline` — общий сценарий parse + LLM для CLI и API
 - `analyzer` — валидация и нормализация LLM-ответа
 - `llm provider` — вызов OpenAI, извлечение JSON
 - `exporter` — сохранение JSON (full mode)
 - `assignment_formatter` — 5 строк рекомендаций (assignment mode)
+- `interfaces/api` — минимальный FastAPI (`GET /health`, `POST /audit`)
 - `core/lang` — нормализация кода языка (`normalize_lang`)
 - `core/user_task` — санитизация `user_task` (`sanitize_user_task`)
 - `core/prompts` — `build_task_context`, языковые правила и защита от injection в system prompt
@@ -176,7 +211,6 @@ DEFAULT_LANG=ru
 
 ## Roadmap
 
-- FastAPI
 - UI
 - screenshot analysis
 - device emulation

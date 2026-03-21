@@ -12,11 +12,12 @@ from urllib.parse import urlparse
 from app.core.config import get_settings
 from app.core.lang import normalize_lang, resolve_effective_lang, used_language_fallback
 from app.interfaces.cli import build_parser
-from app.providers.llm import LlmProviderError, OpenAiAuditProvider
-from app.services.analyzer import AnalyzerError, analyze_landing
+from app.providers.llm import LlmProviderError
+from app.services.analyzer import AnalyzerError
 from app.services.assignment_formatter import format_assignment_output
+from app.services.audit_pipeline import run_landing_audit
 from app.services.exporter import export_report
-from app.services.parser import ParsingError, parse_landing
+from app.services.parser import ParsingError
 
 logger = logging.getLogger(__name__)
 
@@ -88,24 +89,17 @@ def run() -> int:
             host = urlparse(args.url).netloc.replace(":", "_") or "unknown"
             debug_dir = Path("output") / "debug" / host
             logger.info("Debug mode: writing parser artifacts to %s", debug_dir)
-        parsed_landing = parse_landing(
-            url=args.url,
-            settings=settings,
-            debug_dir=debug_dir,
-        )
         _log("analyzing")
-        provider = OpenAiAuditProvider(settings=settings)
         rewrite_targets: tuple[str, ...] | None = getattr(args, "rewrite", None)
 
-        audit_result = analyze_landing(
-            parsed_landing=parsed_landing.to_dict(),
+        report = run_landing_audit(
+            args.url,
+            settings=settings,
             user_task=args.task,
-            provider=provider,
-            lang=effective_lang,
+            effective_lang=effective_lang,
             rewrite_targets=rewrite_targets,
+            debug_dir=debug_dir,
         )
-        report = audit_result.to_dict()
-        report["language"] = effective_lang
         if mode == "assignment":
             for line in format_assignment_output(report, lang=effective_lang):
                 print(line)
