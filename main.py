@@ -18,6 +18,7 @@ from app.services.assignment_formatter import format_assignment_output
 from app.services.audit_pipeline import run_landing_audit
 from app.services.exporter import export_report
 from app.services.parser import ParsingError
+from app.services.report_builder import build_human_report
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,55 @@ def _configure_stdio_utf8() -> None:
                 reconf(encoding="utf-8", errors="replace")
             except (OSError, ValueError, AttributeError, TypeError):
                 pass
+
+
+def _summary_text_for_console(summary: Any) -> str:
+    if summary is None:
+        return ""
+    if isinstance(summary, dict):
+        return json.dumps(summary, ensure_ascii=False, indent=2)
+    return str(summary)
+
+
+def _print_quick_win_line(item: Any) -> None:
+    if isinstance(item, dict):
+        title = str(item.get("title", "")).strip()
+        action = str(item.get("action", "")).strip()
+        if title and action:
+            print(f"- {title}: {action}")
+        elif title:
+            print(f"- {title}")
+        elif action:
+            print(f"- {action}")
+        else:
+            print(f"- {item}")
+    else:
+        print(f"- {item}")
+
+
+def _print_readable_console(report: dict[str, Any]) -> None:
+    """Print ``report_readable`` (or rebuild via ``build_human_report``) to stdout."""
+    rr = report.get("report_readable")
+    if not isinstance(rr, dict):
+        rr = build_human_report(report)
+
+    print("=== SUMMARY ===")
+    print(_summary_text_for_console(rr.get("summary")))
+    print()
+    print("=== ISSUES ===")
+    for line in rr.get("issues_readable") or []:
+        print(f"- {line}")
+    print()
+    print("=== RECOMMENDATIONS ===")
+    blocks = rr.get("recommendations_readable") or []
+    for i, block in enumerate(blocks):
+        if i > 0:
+            print()
+        print(block)
+    print()
+    print("=== QUICK WINS ===")
+    for item in rr.get("quick_wins") or []:
+        _print_quick_win_line(item)
 
 
 def _print_assignment_rewrites(report: dict[str, Any], lang: str) -> None:
@@ -106,6 +156,8 @@ def run() -> int:
                 print(line)
             if rewrite_targets:
                 _print_assignment_rewrites(report, lang=effective_lang)
+        elif getattr(args, "output_format", "json") == "readable":
+            _print_readable_console(report)
         else:
             print(json.dumps(report, ensure_ascii=False, indent=2))
 

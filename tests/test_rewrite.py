@@ -52,6 +52,18 @@ class TestRewriteCli(unittest.TestCase):
         args = p.parse_args(["--url", "https://example.com"])
         self.assertIsNone(args.rewrite)
 
+    def test_default_output_format_json(self) -> None:
+        p = build_parser()
+        args = p.parse_args(["--url", "https://example.com"])
+        self.assertEqual(args.output_format, "json")
+
+    def test_output_format_readable(self) -> None:
+        p = build_parser()
+        args = p.parse_args(
+            ["--url", "https://example.com", "--output-format", "readable"],
+        )
+        self.assertEqual(args.output_format, "readable")
+
     def test_invalid_rewrite_target_rejected(self) -> None:
         p = build_parser()
         buf = io.StringIO()

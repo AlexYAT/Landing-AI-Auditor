@@ -58,4 +58,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=sorted(ALLOWED_PRESETS),
         help="Landing type preset for analysis focus (default: general)",
     )
+    parser.add_argument(
+        "--output-format",
+        dest="output_format",
+        choices=["json", "readable"],
+        default="json",
+        help="Console output in full mode: json (default) or human-readable report",
+    )
     return parser
