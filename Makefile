@@ -11,7 +11,7 @@ lint:
 	echo "No linter configured"
 
 test:
-	echo "No tests yet"
+	python -m unittest discover -s tests -p "test_*.py" -v
 
 clean:
 	rm -rf __pycache__ output/*.json

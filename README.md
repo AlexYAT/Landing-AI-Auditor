@@ -6,6 +6,30 @@ CLI tool for conversion-focused landing page audits. Can be used as:
 
 **Stack:** Python ≥ 3.10, requests, beautifulsoup4, openai, tenacity, python-dotenv.
 
+## Language (`--lang`)
+
+- **Приоритет:** `--lang` (CLI) > `DEFAULT_LANG` (env) > `ru`
+- По умолчанию: **`ru`** — ответ модели и текстовые поля JSON на русском.
+- **`--lang en`** — ответ на английском.
+- **`DEFAULT_LANG`** в `.env` задаёт язык, когда `--lang` не передан.
+- Неподдерживаемый код → **fallback на `ru`** (без падения CLI).
+- Работает в **full** и **assignment**.
+
+```bash
+# Язык из DEFAULT_LANG или ru
+python main.py --url "https://example.com"
+
+# Явно ru
+python main.py --url "https://example.com" --lang ru
+
+# Английский
+python main.py --url "https://example.com" --lang en
+```
+
+```env
+DEFAULT_LANG=ru
+```
+
 ## Assignment Mode
 
 **Input:** URL лендинга  
@@ -21,15 +45,17 @@ CLI tool for conversion-focused landing page audits. Can be used as:
 python main.py --mode assignment --url "https://example.com"
 ```
 
-### Пример вывода
+### Пример вывода (по умолчанию `--lang ru`)
 
 ```
-Improve clarity of the main value proposition
-Strengthen call-to-action visibility and wording
-Add trust elements near conversion points
-Simplify page structure for better readability
-Ensure consistent visual hierarchy
+Повысь ясность основного ценностного предложения
+Усиль видимость и формулировки призыва к действию (CTA)
+Добавь элементы доверия рядом с точками конверсии
+Упрости структуру страницы для лучшей читаемости
+Обеспечь согласованную визуальную иерархию
 ```
+
+С `--lang en` рекомендации и fallback-строки будут на английском.
 
 ## Full Audit Mode
 
@@ -45,8 +71,11 @@ python main.py --url "https://example.com" --task "Check CTA" --output output/re
 
 ### Пример JSON
 
+Full mode добавляет поле `language` (effective lang) в JSON:
+
 ```json
 {
+  "language": "ru",
   "summary": {
     "overall_assessment": "...",
     "primary_conversion_goal_guess": "Lead form submission",
@@ -76,6 +105,7 @@ OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4.1-mini
 REQUEST_TIMEOUT=20
 MAX_TEXT_CHARS=12000
+DEFAULT_LANG=ru
 ```
 
 ## Architecture
@@ -85,6 +115,7 @@ MAX_TEXT_CHARS=12000
 - `llm provider` — вызов OpenAI, извлечение JSON
 - `exporter` — сохранение JSON (full mode)
 - `assignment_formatter` — 5 строк рекомендаций (assignment mode)
+- `core/lang` — нормализация кода языка (`normalize_lang`)
 
 ## Limitations v1
 

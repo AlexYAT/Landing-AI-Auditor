@@ -30,4 +30,10 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Enable verbose logs for pipeline steps",
     )
+    parser.add_argument(
+        "--lang",
+        type=str,
+        default=None,
+        help="Response language: ru or en (default from DEFAULT_LANG env, else ru)",
+    )
     return parser

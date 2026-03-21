@@ -10,7 +10,8 @@ from openai import OpenAI
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app.core.config import Settings
-from app.core.prompts import SYSTEM_PROMPT, build_user_prompt
+from app.core.lang import DEFAULT_LANG
+from app.core.prompts import build_system_prompt, build_user_prompt
 
 
 class LlmProviderError(Exception):
@@ -88,7 +89,12 @@ class OpenAiAuditProvider:
         wait=wait_exponential(multiplier=1, min=1, max=8),
         retry=retry_if_exception_type(LlmProviderError),
     )
-    def analyze_landing(self, parsed_data: dict[str, Any], user_task: str) -> dict[str, Any]:
+    def analyze_landing(
+        self,
+        parsed_data: dict[str, Any],
+        user_task: str,
+        lang: str = DEFAULT_LANG,
+    ) -> dict[str, Any]:
         """Send landing context to LLM and return parsed JSON."""
         try:
             response = self._client.chat.completions.create(
@@ -96,8 +102,15 @@ class OpenAiAuditProvider:
                 temperature=0.2,
                 response_format={"type": "json_object"},
                 messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": build_user_prompt(parsed_data=parsed_data, user_task=user_task)},
+                    {"role": "system", "content": build_system_prompt(lang)},
+                    {
+                        "role": "user",
+                        "content": build_user_prompt(
+                            parsed_data=parsed_data,
+                            user_task=user_task,
+                            lang=lang,
+                        ),
+                    },
                 ],
             )
             content = response.choices[0].message.content

@@ -5,13 +5,29 @@ from __future__ import annotations
 import re
 from typing import Any
 
-_FALLBACKS: tuple[str, ...] = (
-    "Improve clarity of the main value proposition",
-    "Strengthen call-to-action visibility and wording",
-    "Add trust elements near conversion points",
-    "Simplify page structure for better readability",
-    "Ensure consistent visual hierarchy",
-)
+from app.core.lang import DEFAULT_LANG, normalize_lang
+
+_ASSIGNMENT_FALLBACKS: dict[str, tuple[str, ...]] = {
+    "ru": (
+        "Повысь ясность основного ценностного предложения",
+        "Усиль видимость и формулировки призыва к действию (CTA)",
+        "Добавь элементы доверия рядом с точками конверсии",
+        "Упрости структуру страницы для лучшей читаемости",
+        "Обеспечь согласованную визуальную иерархию",
+    ),
+    "en": (
+        "Improve clarity of the main value proposition",
+        "Strengthen call-to-action visibility and wording",
+        "Add trust elements near conversion points",
+        "Simplify page structure for better readability",
+        "Ensure consistent visual hierarchy",
+    ),
+}
+
+
+def _fallbacks_for_lang(lang: str) -> tuple[str, ...]:
+    code = normalize_lang(lang)
+    return _ASSIGNMENT_FALLBACKS.get(code, _ASSIGNMENT_FALLBACKS[DEFAULT_LANG])
 
 
 def _first_sentence(text: str) -> str:
@@ -45,14 +61,16 @@ def _strings_from_items(
     return out
 
 
-def format_assignment_output(report: dict) -> list[str]:
+def format_assignment_output(report: dict, lang: str = DEFAULT_LANG) -> list[str]:
     """
     Build exactly five short recommendation lines from a full audit report dict.
 
     Sources (priority order): quick_wins.action, recommendations.action,
     issues.recommendation. Deduped, then padded with fallbacks if needed.
+    Fallback lines match ``lang`` (ru/en).
     """
     data: dict[str, Any] = report if isinstance(report, dict) else {}
+    fallbacks = _fallbacks_for_lang(lang)
 
     ordered: list[str] = []
     ordered.extend(_strings_from_items(data, "quick_wins", "action"))
@@ -70,7 +88,7 @@ def format_assignment_output(report: dict) -> list[str]:
         if len(unique) >= 5:
             return unique[:5]
 
-    for fb in _FALLBACKS:
+    for fb in fallbacks:
         if len(unique) >= 5:
             break
         key = fb.lower()
@@ -81,7 +99,7 @@ def format_assignment_output(report: dict) -> list[str]:
 
     idx = 0
     while len(unique) < 5:
-        unique.append(_FALLBACKS[idx % len(_FALLBACKS)])
+        unique.append(fallbacks[idx % len(fallbacks)])
         idx += 1
 
     return unique[:5]

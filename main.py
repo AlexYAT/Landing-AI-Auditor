@@ -7,6 +7,7 @@ import logging
 import sys
 
 from app.core.config import get_settings
+from app.core.lang import resolve_effective_lang, used_language_fallback
 from app.interfaces.cli import build_parser
 from app.providers.llm import LlmProviderError, OpenAiAuditProvider
 from app.services.analyzer import AnalyzerError, analyze_landing
@@ -24,6 +25,13 @@ def run() -> int:
     settings = get_settings()
     verbose = bool(args.verbose)
     mode: str = getattr(args, "mode", "full") or "full"
+    effective_lang = resolve_effective_lang(
+        cli_lang=getattr(args, "lang", None),
+        env_lang=settings.default_lang,
+    )
+    logger.info(f"Requested lang: {args.lang!r}, effective lang: {effective_lang}")
+    if used_language_fallback(getattr(args, "lang", None)):
+        logger.info("Language fallback applied: unsupported code, using ru.")
 
     def _log(step: str) -> None:
         if verbose:
@@ -43,17 +51,19 @@ def run() -> int:
             parsed_landing=parsed_landing.to_dict(),
             user_task=args.task,
             provider=provider,
+            lang=effective_lang,
         )
         report = audit_result.to_dict()
+        report["language"] = effective_lang
         if mode == "assignment":
-            for line in format_assignment_output(report):
+            for line in format_assignment_output(report, lang=effective_lang):
                 print(line)
         else:
             print(json.dumps(report, ensure_ascii=False, indent=2))
 
         if mode == "full":
             _log("exporting")
-            export_report(report=audit_result, output_path=args.output)
+            export_report(report=report, output_path=args.output)
             print("Audit completed successfully")
             print(f"Output saved to: {args.output}")
         else:
