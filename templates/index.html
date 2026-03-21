@@ -20,6 +20,9 @@
     pre.block { background: #fafafa; border: 1px solid #eee; padding: 0.75rem; font-size: 0.85rem; white-space: pre-wrap; margin: 0.5rem 0; border-radius: 4px; }
     ul.issues { margin: 0.25rem 0; padding-left: 1.25rem; }
     .muted { font-size: 0.8rem; color: #64748b; margin-top: 1.5rem; }
+    .rewrite-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.75rem; }
+    .rewrite-head h3 { margin: 0; font-size: 0.95rem; }
+    button.copy-btn { margin-top: 0; padding: 0.35rem 0.65rem; font-size: 0.8rem; }
   </style>
 </head>
 <body>
@@ -70,7 +73,31 @@
   {% if rr and not json_pretty %}
   <div class="result">
     <h2>Summary</h2>
+    {% set s = rr.summary | default(none) %}
+    {% if s is mapping
+        and 'overall_assessment' in s
+        and 'primary_conversion_goal_guess' in s
+        and 'top_strengths' in s
+        and 'top_risks' in s %}
+    <p><strong>Overall:</strong></p>
+    <p>{{ s.overall_assessment }}</p>
+    <p><strong>Primary goal:</strong></p>
+    <p>{{ s.primary_conversion_goal_guess }}</p>
+    <p><strong>Strengths:</strong></p>
+    <ul class="issues">
+      {% for line in s.top_strengths|default([], true) %}
+      <li>{{ line }}</li>
+      {% endfor %}
+    </ul>
+    <p><strong>Risks:</strong></p>
+    <ul class="issues">
+      {% for line in s.top_risks|default([], true) %}
+      <li>{{ line }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
     <pre class="block">{{ summary_display }}</pre>
+    {% endif %}
 
     <h2>Issues</h2>
     {% if issues_list %}
@@ -104,12 +131,37 @@
     {% if rewrite_texts and (rewrite_texts.get('hero') or rewrite_texts.get('cta') or rewrite_texts.get('trust')) %}
     <h2>Rewrites</h2>
     <p class="muted">Ready-to-paste blocks (<code>rewrite_texts</code>)</p>
-    <h3 style="font-size:0.95rem;margin-top:0.75rem;">Hero</h3>
-    <pre class="block">{{ rewrite_texts.get('hero', '') }}</pre>
-    <h3 style="font-size:0.95rem;margin-top:0.75rem;">CTA</h3>
-    <pre class="block">{{ rewrite_texts.get('cta', '') }}</pre>
-    <h3 style="font-size:0.95rem;margin-top:0.75rem;">Trust</h3>
-    <pre class="block">{{ rewrite_texts.get('trust', '') }}</pre>
+    <div class="rewrite-head">
+      <h3>Hero</h3>
+      <button type="button" class="copy-btn" data-copy-target="rewrite-hero">Copy</button>
+    </div>
+    <pre id="rewrite-hero" class="block">{{ rewrite_texts.get('hero', '') }}</pre>
+    <div class="rewrite-head">
+      <h3>CTA</h3>
+      <button type="button" class="copy-btn" data-copy-target="rewrite-cta">Copy</button>
+    </div>
+    <pre id="rewrite-cta" class="block">{{ rewrite_texts.get('cta', '') }}</pre>
+    <div class="rewrite-head">
+      <h3>Trust</h3>
+      <button type="button" class="copy-btn" data-copy-target="rewrite-trust">Copy</button>
+    </div>
+    <pre id="rewrite-trust" class="block">{{ rewrite_texts.get('trust', '') }}</pre>
+    <script>
+(function () {
+  document.querySelectorAll("button.copy-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var id = btn.getAttribute("data-copy-target");
+      var el = id && document.getElementById(id);
+      if (!el) return;
+      var prev = btn.textContent;
+      navigator.clipboard.writeText(el.textContent || "").then(function () {
+        btn.textContent = "Copied!";
+        setTimeout(function () { btn.textContent = prev; }, 1500);
+      }).catch(function () {});
+    });
+  });
+})();
+    </script>
     {% endif %}
   </div>
   {% endif %}
