@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Sequence
 
 from app.core.lang import DEFAULT_LANG, get_analyzer_messages, normalize_lang
+from app.core.rewrite_targets import ALLOWED_REWRITE_TARGETS
 from app.core.user_task import sanitize_user_task
-from app.core.models import AuditIssue, AuditResult, AuditSummary, QuickWin, Recommendation
+from app.core.models import (
+    AuditIssue,
+    AuditResult,
+    AuditSummary,
+    ContentRewrite,
+    QuickWin,
+    Recommendation,
+)
 from app.providers.llm import OpenAiAuditProvider
 
 logger = logging.getLogger(__name__)
@@ -20,6 +28,7 @@ class AnalyzerError(Exception):
 ALLOWED_SEVERITIES = {"high", "medium", "low"}
 ALLOWED_PRIORITIES = {"high", "medium", "low"}
 ALLOWED_CATEGORIES = {"clarity", "cta", "trust", "friction", "structure", "forms", "offer", "other"}
+ALLOWED_REWRITE_BLOCKS = ALLOWED_REWRITE_TARGETS
 
 
 def _as_list(data: Any) -> list[Any]:
@@ -54,7 +63,33 @@ def _build_fallback_summary(lang: str) -> AuditSummary:
     )
 
 
-def validate_and_normalize_audit_result(data: dict[str, Any], lang: str = DEFAULT_LANG) -> AuditResult:
+def _normalize_rewrites_ordered(
+    data: dict[str, Any],
+    requested_ordered: tuple[str, ...],
+) -> list[ContentRewrite]:
+    """Parse rewrites; keep first model entry per block; output order follows requested_ordered."""
+    allowed = frozenset(requested_ordered)
+    by_block: dict[str, ContentRewrite] = {}
+    for item in _as_list(data.get("rewrites")):
+        if not isinstance(item, dict):
+            continue
+        block = _as_str(item.get("block")).lower()
+        if block not in allowed or block in by_block:
+            continue
+        by_block[block] = ContentRewrite(
+            block=block,
+            before=_as_str(item.get("before")),
+            after=_as_str(item.get("after")),
+            why=_as_str(item.get("why")),
+        )
+    return [by_block[b] for b in requested_ordered if b in by_block]
+
+
+def validate_and_normalize_audit_result(
+    data: dict[str, Any],
+    lang: str = DEFAULT_LANG,
+    rewrite_targets: Sequence[str] | None = None,
+) -> AuditResult:
     """Normalize partially-valid model JSON into stable audit dataclasses."""
     msg = get_analyzer_messages(lang)
     summary_raw = data.get("summary")
@@ -114,11 +149,24 @@ def validate_and_normalize_audit_result(data: dict[str, Any], lang: str = DEFAUL
             )
         )
 
+    rewrites: list[ContentRewrite] = []
+    if rewrite_targets:
+        ordered: list[str] = []
+        seen_o: set[str] = set()
+        for t in rewrite_targets:
+            b = _as_str(t).lower()
+            if b in ALLOWED_REWRITE_BLOCKS and b not in seen_o:
+                seen_o.add(b)
+                ordered.append(b)
+        if ordered:
+            rewrites = _normalize_rewrites_ordered(data, tuple(ordered))
+
     return AuditResult(
         summary=summary,
         issues=issues,
         recommendations=recommendations,
         quick_wins=quick_wins,
+        rewrites=rewrites,
     )
 
 
@@ -127,11 +175,14 @@ def analyze_landing(
     user_task: str | None,
     provider: OpenAiAuditProvider,
     lang: str = DEFAULT_LANG,
+    rewrite_targets: Sequence[str] | None = None,
 ) -> AuditResult:
     """Run LLM audit and normalize response into strongly typed result."""
     effective_lang = normalize_lang(lang)
     sanitized = sanitize_user_task(user_task)
     logger.info(f"Task-aware analysis enabled: {'yes' if sanitized else 'no'}")
+    if rewrite_targets:
+        logger.info("Rewrite targets: %s", tuple(rewrite_targets))
     if sanitized:
         preview = sanitized if len(sanitized) <= 120 else f"{sanitized[:120]}..."
         logger.info(f'Task: "{preview}"')
@@ -140,7 +191,12 @@ def analyze_landing(
             parsed_data=parsed_landing,
             sanitized_user_task=sanitized,
             lang=effective_lang,
+            rewrite_targets=rewrite_targets,
         )
-        return validate_and_normalize_audit_result(raw, lang=effective_lang)
+        return validate_and_normalize_audit_result(
+            raw,
+            lang=effective_lang,
+            rewrite_targets=rewrite_targets,
+        )
     except Exception as exc:
         raise AnalyzerError(f"Failed to analyze and normalize LLM output: {exc}") from exc

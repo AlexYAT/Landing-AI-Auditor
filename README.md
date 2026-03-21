@@ -47,6 +47,25 @@ python main.py --url https://site.com --task "усилить доверие"
 - Задача влияет на **приоритизацию** и формулировки в отчёте, но **не может** менять формат ответа (JSON), язык (`--lang` / `DEFAULT_LANG`) или системные правила.
 - Строка санитизируется (длина, пробелы, управляющие символы) и передаётся в промпт как **данные**, не как инструкции; в system prompt добавлены правила против prompt injection.
 
+## Rewrite (`--rewrite`)
+
+Опционально: после полного аудита попросить модель сгенерировать **переписанные блоки** (только текст/оффер/логика, без HTML/CSS и пиксельных советов).
+
+- Допустимые цели: **`hero`**, **`cta`**, **`trust`** — одна или несколько через запятую (порядок сохраняется, дубликаты убираются).
+- Без флага поведение как раньше; в JSON поле **`rewrites`** всё равно есть как **`[]`** (стабильная схема).
+- В ответ попадают **только** запрошенные блоки; лишние объекты от модели отбрасываются. Порядок в `rewrites` совпадает с порядком в CLI.
+
+```bash
+python main.py --url "https://example.com" --rewrite hero
+python main.py --url "https://example.com" --rewrite cta
+python main.py --url "https://example.com" --rewrite trust
+python main.py --url "https://example.com" --rewrite hero,cta
+python main.py --url "https://example.com" --rewrite hero,cta,trust
+python main.py --url "https://example.com" --task "Increase trust for cold traffic" --rewrite trust,cta
+```
+
+В **assignment** после пяти строк печатаются секции переписи по запрошенным блокам (если модель вернула данные).
+
 ## Assignment Mode
 
 **Input:** URL лендинга  

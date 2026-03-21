@@ -97,6 +97,16 @@ class QuickWin:
 
 
 @dataclass
+class ContentRewrite:
+    """Generated rewrite for a page block (e.g. hero)."""
+
+    block: str
+    before: str
+    after: str
+    why: str
+
+
+@dataclass
 class AuditSummary:
     """High-level conversion assessment."""
 
@@ -114,6 +124,7 @@ class AuditResult:
     issues: list[AuditIssue] = field(default_factory=list)
     recommendations: list[Recommendation] = field(default_factory=list)
     quick_wins: list[QuickWin] = field(default_factory=list)
+    rewrites: list[ContentRewrite] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert model to dictionary."""

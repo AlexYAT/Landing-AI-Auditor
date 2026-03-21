@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+from typing import Any, Sequence
 
 from openai import OpenAI
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
@@ -94,6 +94,7 @@ class OpenAiAuditProvider:
         parsed_data: dict[str, Any],
         sanitized_user_task: str | None,
         lang: str = DEFAULT_LANG,
+        rewrite_targets: Sequence[str] | None = None,
     ) -> dict[str, Any]:
         """Send landing context to LLM and return parsed JSON."""
         try:
@@ -102,13 +103,17 @@ class OpenAiAuditProvider:
                 temperature=0.2,
                 response_format={"type": "json_object"},
                 messages=[
-                    {"role": "system", "content": build_system_prompt(lang)},
+                    {
+                        "role": "system",
+                        "content": build_system_prompt(lang, rewrite_targets=rewrite_targets),
+                    },
                     {
                         "role": "user",
                         "content": build_user_prompt(
                             parsed_data=parsed_data,
                             sanitized_user_task=sanitized_user_task,
                             lang=lang,
+                            rewrite_targets=rewrite_targets,
                         ),
                     },
                 ],

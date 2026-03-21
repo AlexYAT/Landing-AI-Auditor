@@ -6,10 +6,11 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse
 
 from app.core.config import get_settings
-from app.core.lang import resolve_effective_lang, used_language_fallback
+from app.core.lang import normalize_lang, resolve_effective_lang, used_language_fallback
 from app.interfaces.cli import build_parser
 from app.providers.llm import LlmProviderError, OpenAiAuditProvider
 from app.services.analyzer import AnalyzerError, analyze_landing
@@ -18,6 +19,31 @@ from app.services.exporter import export_report
 from app.services.parser import ParsingError, parse_landing
 
 logger = logging.getLogger(__name__)
+
+
+def _print_assignment_rewrites(report: dict[str, Any], lang: str) -> None:
+    """Print rewrite blocks after five assignment lines (order matches normalized report)."""
+    items = report.get("rewrites")
+    if not isinstance(items, list) or not items:
+        return
+    code = normalize_lang(lang)
+    if code == "ru":
+        b_lbl, a_lbl, w_lbl = "До:", "После:", "Почему:"
+    else:
+        b_lbl, a_lbl, w_lbl = "Before:", "After:", "Why:"
+    print()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        block = str(item.get("block", "")).lower()
+        if block not in {"hero", "cta", "trust"}:
+            continue
+        hdr = f"--- Rewrite: {block} ---" if code == "en" else f"--- Перепись: {block} ---"
+        print(hdr)
+        print(f"{b_lbl} {item.get('before', '')}".strip())
+        print(f"{a_lbl} {item.get('after', '')}".strip())
+        print(f"{w_lbl} {item.get('why', '')}".strip())
+        print()
 
 
 def run() -> int:
@@ -58,17 +84,22 @@ def run() -> int:
         )
         _log("analyzing")
         provider = OpenAiAuditProvider(settings=settings)
+        rewrite_targets: tuple[str, ...] | None = getattr(args, "rewrite", None)
+
         audit_result = analyze_landing(
             parsed_landing=parsed_landing.to_dict(),
             user_task=args.task,
             provider=provider,
             lang=effective_lang,
+            rewrite_targets=rewrite_targets,
         )
         report = audit_result.to_dict()
         report["language"] = effective_lang
         if mode == "assignment":
             for line in format_assignment_output(report, lang=effective_lang):
                 print(line)
+            if rewrite_targets:
+                _print_assignment_rewrites(report, lang=effective_lang)
         else:
             print(json.dumps(report, ensure_ascii=False, indent=2))
 

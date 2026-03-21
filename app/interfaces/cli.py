@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 
+from app.core.rewrite_targets import parse_rewrite_targets_arg
+
 
 def build_parser() -> argparse.ArgumentParser:
     """Build and return CLI argument parser."""
@@ -41,5 +43,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--debug",
         action="store_true",
         help="Save raw.html and extracted_text.txt under output/debug/<host> and log encoding/text preview",
+    )
+    parser.add_argument(
+        "--rewrite",
+        type=parse_rewrite_targets_arg,
+        default=None,
+        metavar="TARGETS",
+        help='Comma-separated content rewrites: hero, cta, trust (e.g. "hero" or "hero,cta,trust")',
     )
     return parser
