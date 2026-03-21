@@ -28,7 +28,7 @@ def _configure_stdio_utf8() -> None:
         if callable(reconf):
             try:
                 reconf(encoding="utf-8", errors="replace")
-            except (OSError, ValueError, AttributeError):
+            except (OSError, ValueError, AttributeError, TypeError):
                 pass
 
 

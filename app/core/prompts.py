@@ -23,14 +23,20 @@ REWRITE_BLOCK_GUIDE_RU: dict[str, str] = {
         "why — почему это снижает трение и повышает клик/заявку."
     ),
     "trust": (
-        "Блок \"trust\": усиление доверия в тексте (соцдоказательства, кредибилити, снятие страхов); "
-        "не выдумывай факты, цифры, награды, отзывы или клиентов. Если в данных мало доказательств — "
-        "честно укажи это и предложи, какой тип доверительного доказательства стоит добавить, без вымышленных достижений.\n"
-        "В поле after запрещены вымышленные конкретные числа (например, «100 клиентов»), имена в отзывах, логотипы СМИ; "
-        "если цифр и отзывов нет в данных парсера — используй нейтральные шаблоны («Добавьте 2–3 реальных отзыва с именем и результатом») "
-        "или общие формулировки без подсчётов.\n"
+        "Блок \"trust\": усиление доверия в тексте (соцдоказательства, кредибилити, снятие страхов).\n"
+        "КРИТИЧНО — без доказательств в visible_text_excerpt / данных парсера НЕЛЬЗЯ придумывать и вставлять в after:\n"
+        "- количество клиентов, отзывов, лет опыта, рейтинги (в т.ч. «4.9», «более 100 клиентов»);\n"
+        "- сертификаты, награды, упоминания СМИ, гарантии с конкретикой;\n"
+        "- имена в отзывах, цитаты, логотипы, квалификация, которой нет в переданных строках.\n"
+        "Если таких фактов в данных нет — в after используй безопасные формулировки: что добавить на сайт и зачем, "
+        "шаблоны блоков («Добавьте блок с отзывами клиентов»), или общие принципы («Укажите подтверждаемые факты об опыте "
+        "или подходе») без конкретных цифр и вымышленных достижений.\n"
+        "Примеры НЕПРИЕМЛЕМЫХ after: «Более 100 довольных клиентов», «10 лет опыта», «Рейтинг 4.9», «Сертификат ICF», "
+        "если этого нет во входных данных.\n"
+        "Примеры ПРИЕМЛЕМЫХ after: «Добавьте блок с 2–3 реальными отзывами (имя + результат)», "
+        "«Кратко опишите подтверждаемую квалификацию специалиста».\n"
         "Поля: block=\"trust\"; before — слабое место доверия по данным; "
-        "after — улучшенный доверительный текст/формулировки блока; "
+        "after — либо осторожный шаблон/руководство по внедрению, либо текст, опирающийся ТОЛЬКО на факты из данных; "
         "why — почему это повышает уверенность пользователя."
     ),
 }
@@ -50,14 +56,21 @@ REWRITE_BLOCK_GUIDE_EN: dict[str, str] = {
         "why — why this reduces friction and improves click/lead intent."
     ),
     "trust": (
-        "Block \"trust\": stronger trust-building copy; social proof / credibility / reassurance angle; "
-        "do not fabricate facts, metrics, awards, testimonials, or clients. If evidence is thin, say so honestly and "
-        "suggest what kind of trust proof to add without inventing real achievements.\n"
-        "In after, never invent specific numbers (e.g. client counts), named quotes, media logos, or credentials not "
-        "present in parsed data; use neutral placeholder guidance (e.g. \"Add 2–3 real testimonials with outcome\") "
-        "instead of fake statistics.\n"
+        "Block \"trust\": stronger trust-building copy; social proof / credibility / reassurance angle.\n"
+        "CRITICAL — unless clearly supported by visible_text_excerpt / parsed landing strings, the after field MUST NOT "
+        "invent or imply:\n"
+        "- client or review counts, years of experience, star ratings (e.g. \"4.9\", \"100+ happy clients\");\n"
+        "- certifications, awards, press mentions, guarantees with specifics;\n"
+        "- named testimonials, quotes, logos, or credentials not present in the supplied data.\n"
+        "If evidence is missing, after must use safe placeholders or implementation guidance (e.g. \"Add a testimonials "
+        "section with 2–3 real client quotes\", \"State verifiable facts about experience or methodology\") with NO "
+        "fabricated numbers or achievements.\n"
+        "UNACCEPTABLE after examples (when not in input data): \"Over 100 satisfied clients\", \"10 years of experience\", "
+        "\"Rated 4.9\", \"ICF certified\".\n"
+        "ACCEPTABLE after examples: \"Add a 'Why trust us' block listing verifiable credentials you can prove\", "
+        "\"Include 2–3 real testimonials with outcome and attribution\".\n"
         "Fields: block=\"trust\"; before — trust weakness from data; "
-        "after — improved trust-oriented copy; "
+        "after — either cautious template/guidance for what to add, or copy grounded ONLY in facts from the input; "
         "why — why this increases user confidence."
     ),
 }
@@ -231,6 +244,11 @@ Guardrails:
 - Do NOT use unsupported certainty. If evidence is missing, state this explicitly in assessment/evidence.
 - Recommendations must be practical and implementation-ready.
 - Avoid pixel-perfect micro-advice (e.g. move button by exact pixels).
+
+Recommendations and quick_wins (focus on content, structure, and conversion logic):
+- Do NOT suggest exact colors, hex codes, gradients, or purely cosmetic styling.
+- Do NOT give pixel-level layout, spacing, margin/padding, font-size, letter-spacing, line-height, grid, or breakpoint tweaks.
+- Prefer: value proposition clarity, headline/body copy, CTA wording and prominence logic, trust proof types, information architecture, scannability (headings/lists), forms friction, and user flow — without visual micro-design.
 
 Encoding and readable text (use audit_meta.quality_hint and audit_meta.text_quality_score):
 - These fields summarize parser-side extraction quality. Follow them when judging whether text is usable.

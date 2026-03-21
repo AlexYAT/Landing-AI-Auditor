@@ -53,6 +53,27 @@ CONTACT_KEYWORDS = (
     "contacts",
 )
 
+# Narrow builder attribution phrases (avoid stripping arbitrary brand mentions).
+_BUILDER_ATTRIBUTION_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"(?i)\s*сайт\s+создан\s+на\s+craftum\.?\s*"),
+    re.compile(r"(?i)\s*создан[ао]?\s+на\s+craftum\.?\s*"),
+    re.compile(r"(?i)\s*(?:website|site)\s+(?:made|created)\s+(?:with|on|using)\s+craftum\.?\s*"),
+    re.compile(r"(?i)\s*powered\s+by\s+craftum\.?\s*"),
+)
+# Trailing builder name after phrase removal (conservative: end of string only).
+_TRAILING_BUILDER_CRAFTUM = re.compile(r"(?i)\s+craftum\.?\s*$")
+
+
+def strip_builder_footer_noise(text: str) -> str:
+    """Remove common no-code builder footer boilerplate from merged visible text."""
+    if not text:
+        return text
+    cleaned = text
+    for rx in _BUILDER_ATTRIBUTION_PATTERNS:
+        cleaned = rx.sub(" ", cleaned)
+    cleaned = _TRAILING_BUILDER_CRAFTUM.sub("", cleaned)
+    return re.sub(r"\s+", " ", cleaned).strip()
+
 
 logger = logging.getLogger(__name__)
 
@@ -439,6 +460,7 @@ def extract_text(soup: BeautifulSoup, max_chars: int) -> str:
 
     merged = " ".join(chunks)
     merged = re.sub(r"\s+", " ", merged).strip()
+    merged = strip_builder_footer_noise(merged)
     if len(merged) <= max_chars:
         return merged
     return merged[:max_chars].rstrip() + "..."

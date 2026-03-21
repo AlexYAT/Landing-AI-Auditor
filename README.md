@@ -143,6 +143,8 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+**Windows:** при выводе большого JSON в консоль `main.py` пытается переключить stdout/stderr на UTF-8; при проблемах с кодировкой полагайтесь на сохранённый файл `--output` или задайте `PYTHONIOENCODING=utf-8`.
+
 ## Setup
 
 1. Скопируйте `.env.example` в `.env`
