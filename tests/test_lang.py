@@ -14,7 +14,13 @@ from app.core.lang import (
     resolve_effective_lang,
     used_language_fallback,
 )
-from app.core.prompts import LANG_RULES, build_system_prompt, build_user_prompt
+from app.core.prompts import (
+    INJECTION_GUARDS,
+    LANG_RULES,
+    build_system_prompt,
+    build_task_context,
+    build_user_prompt,
+)
 from app.services.assignment_formatter import format_assignment_output
 
 
@@ -103,14 +109,35 @@ class TestPrompts(unittest.TestCase):
         text_en = build_system_prompt("en")
         self.assertIn("error", text_en)
 
-    def test_user_prompt_ru_labels(self) -> None:
-        body = build_user_prompt({"a": 1}, "task", lang="ru")
-        self.assertIn("Задача пользователя", body)
-        self.assertIn("task", body)
+    def test_injection_guard_in_system_prompt(self) -> None:
+        text = build_system_prompt("ru")
+        self.assertIn("игнорируй", text.lower())
+        self.assertIn(INJECTION_GUARDS["ru"][:30], text)
+        text_en = build_system_prompt("en")
+        self.assertIn("ignore", text_en.lower())
 
-    def test_user_prompt_en_labels(self) -> None:
-        body = build_user_prompt({"a": 1}, "task", lang="en")
-        self.assertIn("User task:", body)
+    def test_user_prompt_task_aware_ru(self) -> None:
+        body = build_user_prompt({"a": 1}, "увеличить заявки", lang="ru")
+        self.assertIn("Пользовательская задача", body)
+        self.assertIn("увеличить заявки", body)
+        self.assertIn("task-aware", body.lower())
+
+    def test_user_prompt_task_aware_en(self) -> None:
+        body = build_user_prompt({"a": 1}, "boost signups", lang="en")
+        self.assertIn("User task (data", body)
+        self.assertIn("boost signups", body)
+
+    def test_user_prompt_general_mode(self) -> None:
+        body = build_user_prompt({"a": 1}, None, lang="ru")
+        self.assertIn("общий", body.lower())
+        body_en = build_user_prompt({"a": 1}, None, lang="en")
+        self.assertIn("general", body_en.lower())
+
+    def test_lang_and_task_together(self) -> None:
+        ctx = build_task_context("x", "en")
+        self.assertIn("Task-aware", ctx)
+        ctx_ru = build_task_context(None, "ru")
+        self.assertIn("общий", ctx_ru.lower())
 
 
 class TestAssignmentFormatterLang(unittest.TestCase):

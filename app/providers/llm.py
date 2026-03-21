@@ -92,7 +92,7 @@ class OpenAiAuditProvider:
     def analyze_landing(
         self,
         parsed_data: dict[str, Any],
-        user_task: str,
+        sanitized_user_task: str | None,
         lang: str = DEFAULT_LANG,
     ) -> dict[str, Any]:
         """Send landing context to LLM and return parsed JSON."""
@@ -107,7 +107,7 @@ class OpenAiAuditProvider:
                         "role": "user",
                         "content": build_user_prompt(
                             parsed_data=parsed_data,
-                            user_task=user_task,
+                            sanitized_user_task=sanitized_user_task,
                             lang=lang,
                         ),
                     },

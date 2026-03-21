@@ -30,6 +30,23 @@ python main.py --url "https://example.com" --lang en
 DEFAULT_LANG=ru
 ```
 
+## User task (`--task`)
+
+Опциональная **бизнес-цель** для режима **task-aware** анализа:
+
+- Без `--task` — общий CRO-аудит (равный вес критериев).
+- С `--task` — приоритет рекомендаций, severity/priority и `expected_impact` привязаны к этой цели; summary отражает достижимость цели на странице.
+
+```bash
+python main.py --url https://site.com --task "увеличить заявки"
+python main.py --url https://site.com --task "усилить доверие"
+```
+
+**Важно:**
+
+- Задача влияет на **приоритизацию** и формулировки в отчёте, но **не может** менять формат ответа (JSON), язык (`--lang` / `DEFAULT_LANG`) или системные правила.
+- Строка санитизируется (длина, пробелы, управляющие символы) и передаётся в промпт как **данные**, не как инструкции; в system prompt добавлены правила против prompt injection.
+
 ## Assignment Mode
 
 **Input:** URL лендинга  
@@ -43,6 +60,7 @@ DEFAULT_LANG=ru
 
 ```bash
 python main.py --mode assignment --url "https://example.com"
+python main.py --mode assignment --url "https://example.com" --task "увеличить заявки"
 ```
 
 ### Пример вывода (по умолчанию `--lang ru`)
@@ -65,6 +83,7 @@ python main.py --mode assignment --url "https://example.com"
 ### Запуск
 
 ```bash
+python main.py --url "https://example.com"
 python main.py --url "https://example.com" --task "Improve conversion"
 python main.py --url "https://example.com" --task "Check CTA" --output output/report.json --verbose
 ```
@@ -116,6 +135,8 @@ DEFAULT_LANG=ru
 - `exporter` — сохранение JSON (full mode)
 - `assignment_formatter` — 5 строк рекомендаций (assignment mode)
 - `core/lang` — нормализация кода языка (`normalize_lang`)
+- `core/user_task` — санитизация `user_task` (`sanitize_user_task`)
+- `core/prompts` — `build_task_context`, языковые правила и защита от injection в system prompt
 
 ## Limitations v1
 

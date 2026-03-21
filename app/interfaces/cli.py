@@ -11,8 +11,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--url", required=True, help="Landing page URL to audit")
     parser.add_argument(
         "--task",
-        default="Analyze landing for conversion improvements",
-        help="User task / audit focus",
+        type=str,
+        default=None,
+        help="Business goal for task-aware audit (optional; omit for general CRO audit)",
     )
     parser.add_argument(
         "--mode",

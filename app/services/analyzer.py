@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from app.core.lang import DEFAULT_LANG, get_analyzer_messages, normalize_lang
+from app.core.user_task import sanitize_user_task
 from app.core.models import AuditIssue, AuditResult, AuditSummary, QuickWin, Recommendation
 from app.providers.llm import OpenAiAuditProvider
 
@@ -120,16 +122,21 @@ def validate_and_normalize_audit_result(data: dict[str, Any], lang: str = DEFAUL
 
 def analyze_landing(
     parsed_landing: dict[str, Any],
-    user_task: str,
+    user_task: str | None,
     provider: OpenAiAuditProvider,
     lang: str = DEFAULT_LANG,
 ) -> AuditResult:
     """Run LLM audit and normalize response into strongly typed result."""
     effective_lang = normalize_lang(lang)
+    sanitized = sanitize_user_task(user_task)
+    logger.info(f"Task-aware analysis enabled: {'yes' if sanitized else 'no'}")
+    if sanitized:
+        preview = sanitized if len(sanitized) <= 120 else f"{sanitized[:120]}..."
+        logger.info(f'Task: "{preview}"')
     try:
         raw = provider.analyze_landing(
             parsed_data=parsed_landing,
-            user_task=user_task,
+            sanitized_user_task=sanitized,
             lang=effective_lang,
         )
         return validate_and_normalize_audit_result(raw, lang=effective_lang)
