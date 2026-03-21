@@ -10,9 +10,11 @@ from urllib.parse import urlparse
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from starlette.middleware.cors import CORSMiddleware
 
-from app.core.config import get_settings
-from app.core.lang import SUPPORTED_LANGS, resolve_effective_lang
+from app.core.config import get_cors_allowed_origins, get_settings
+from app.core.lang import SUPPORTED_LANGS, SUPPORTED_LANGS_API_ORDER, resolve_effective_lang
+from app.core.rewrite_targets import REWRITE_TARGETS_API_ORDER
 from app.providers.llm import LlmProviderError
 from app.services.analyzer import AnalyzerError
 from app.services.audit_pipeline import run_landing_audit
@@ -20,10 +22,22 @@ from app.services.parser import ParsingError
 
 logger = logging.getLogger(__name__)
 
+API_VERSION = "v1"
+
 app = FastAPI(
     title="Landing AI Auditor",
     version="1.0",
     description="HTTP API for the same audit flow as the CLI (no auth).",
+)
+
+_origins = get_cors_allowed_origins()
+_cors_wildcard = _origins == ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_origins,
+    allow_credentials=not _cors_wildcard,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -31,6 +45,15 @@ class HealthResponse(BaseModel):
     """GET /health body."""
 
     status: Literal["ok"] = "ok"
+
+
+class CapabilitiesResponse(BaseModel):
+    """GET /meta/capabilities — stable hints for UI clients (languages, rewrite blocks, flags)."""
+
+    supported_languages: list[str]
+    rewrite_targets: list[str]
+    debug_supported: bool = True
+    api_version: str
 
 
 class ApiErrorResponse(BaseModel):
@@ -116,6 +139,21 @@ async def _http_exception_handler(request: Request, exc: HTTPException) -> JSONR
 def get_health() -> HealthResponse:
     """Liveness probe for load balancers and UI integration."""
     return HealthResponse()
+
+
+@app.get("/meta/capabilities", response_model=CapabilitiesResponse, tags=["meta"])
+def get_capabilities() -> CapabilitiesResponse:
+    """
+    Describe supported options (languages, rewrite blocks) without hard-coding in the frontend.
+
+    Aligns with ``SUPPORTED_LANGS`` / ``ALLOWED_REWRITE_TARGETS`` in core modules.
+    """
+    return CapabilitiesResponse(
+        supported_languages=list(SUPPORTED_LANGS_API_ORDER),
+        rewrite_targets=list(REWRITE_TARGETS_API_ORDER),
+        debug_supported=True,
+        api_version=API_VERSION,
+    )
 
 
 @app.post(

@@ -162,6 +162,8 @@ DEFAULT_LANG=ru
 
 Минимальный слой **без авторизации и БД**; повторяет пайплайн CLI через `app.services.audit_pipeline.run_landing_audit` (parse → OpenAI → нормализованный JSON). Фоновых задач и хранения данных нет.
 
+**CORS:** переменная окружения `ALLOWED_ORIGINS` задаёт разрешённые origin для браузерного UI. По умолчанию — `*` (удобно для разработки). Для продакшена укажите список через запятую, например `http://localhost:5173,https://app.example.com`. При явном списке origin включается `Access-Control-Allow-Credentials` совместимо с Starlette (при `*` credentials отключены).
+
 **Запуск:**
 
 ```bash
@@ -176,6 +178,14 @@ curl -s http://127.0.0.1:8000/health
 ```
 
 Ответ: `{"status":"ok"}`.
+
+**Возможности API для UI (`GET /meta/capabilities`):**
+
+Статический JSON с поддерживаемыми языками, целями переписи и версией API — чтобы фронтенд не дублировал те же списки и мог строить формы/валидацию от одного источника правды на сервере.
+
+```bash
+curl -s http://127.0.0.1:8000/meta/capabilities
+```
 
 **Аудит (`POST /audit`):**
 
@@ -199,7 +209,7 @@ curl -s -X POST http://127.0.0.1:8000/audit -H "Content-Type: application/json" 
 - `llm provider` — вызов OpenAI, извлечение JSON
 - `exporter` — сохранение JSON (full mode)
 - `assignment_formatter` — 5 строк рекомендаций (assignment mode)
-- `interfaces/api` — минимальный FastAPI (`GET /health`, `POST /audit`)
+- `interfaces/api` — минимальный FastAPI (`GET /health`, `GET /meta/capabilities`, `POST /audit`, CORS)
 - `core/lang` — нормализация кода языка (`normalize_lang`)
 - `core/user_task` — санитизация `user_task` (`sanitize_user_task`)
 - `core/prompts` — `build_task_context`, языковые правила и защита от injection в system prompt

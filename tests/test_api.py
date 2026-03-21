@@ -1,4 +1,4 @@
-"""FastAPI /health and /audit tests (mocked pipeline, no real network or OpenAI)."""
+"""FastAPI /health, /meta/capabilities, /audit tests (mocked pipeline where needed)."""
 
 from __future__ import annotations
 
@@ -6,8 +6,11 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
+from starlette.middleware.cors import CORSMiddleware
 
-from app.interfaces.api import app
+from app.core.lang import SUPPORTED_LANGS_API_ORDER
+from app.core.rewrite_targets import REWRITE_TARGETS_API_ORDER
+from app.interfaces.api import API_VERSION, app
 from app.providers.llm import LlmProviderError
 from app.services.analyzer import AnalyzerError
 from app.services.parser import ParsingError
@@ -35,6 +38,40 @@ class TestHealthEndpoint(unittest.TestCase):
         response = self.client.get("/health")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
+
+
+class TestCapabilitiesEndpoint(unittest.TestCase):
+    def setUp(self) -> None:
+        self.client = TestClient(app)
+
+    def test_get_meta_capabilities_success(self) -> None:
+        response = self.client.get("/meta/capabilities")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["supported_languages"], list(SUPPORTED_LANGS_API_ORDER))
+        self.assertEqual(data["rewrite_targets"], list(REWRITE_TARGETS_API_ORDER))
+        self.assertTrue(data["debug_supported"])
+        self.assertEqual(data["api_version"], API_VERSION)
+
+
+class TestCorsMiddleware(unittest.TestCase):
+    def setUp(self) -> None:
+        self.client = TestClient(app)
+
+    def test_cors_middleware_registered(self) -> None:
+        classes = [m.cls for m in app.user_middleware]
+        self.assertIn(CORSMiddleware, classes)
+
+    def test_cors_preflight_includes_allow_origin(self) -> None:
+        response = self.client.options(
+            "/health",
+            headers={
+                "Origin": "http://localhost:5173",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(response.headers.get("access-control-allow-origin"))
 
 
 class TestAuditEndpoint(unittest.TestCase):

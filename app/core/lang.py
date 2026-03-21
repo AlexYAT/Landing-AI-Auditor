@@ -4,6 +4,9 @@ from __future__ import annotations
 
 DEFAULT_LANG: str = "ru"
 SUPPORTED_LANGS: frozenset[str] = frozenset({"ru", "en"})
+# Stable order for API/UI (must stay in sync with ``SUPPORTED_LANGS``)
+SUPPORTED_LANGS_API_ORDER: tuple[str, ...] = ("ru", "en")
+assert frozenset(SUPPORTED_LANGS_API_ORDER) == SUPPORTED_LANGS
 
 
 def normalize_lang(lang: str | None) -> str:

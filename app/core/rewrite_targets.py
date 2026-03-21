@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 ALLOWED_REWRITE_TARGETS: frozenset[str] = frozenset({"hero", "cta", "trust"})
+# Stable order for API/UI (must stay in sync with ``ALLOWED_REWRITE_TARGETS``)
+REWRITE_TARGETS_API_ORDER: tuple[str, ...] = ("hero", "cta", "trust")
+assert frozenset(REWRITE_TARGETS_API_ORDER) == ALLOWED_REWRITE_TARGETS
 
 
 def parse_rewrite_targets_arg(raw: str) -> tuple[str, ...]:

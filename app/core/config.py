@@ -22,6 +22,24 @@ class Settings:
     default_lang: str = "ru"
 
 
+def get_cors_allowed_origins() -> list[str]:
+    """
+    Parse ``ALLOWED_ORIGINS`` for CORSMiddleware.
+
+    - Default / empty / ``*`` → ``["*"]`` (any origin; development-friendly).
+    - Comma-separated list → explicit origins (trimmed, empty parts dropped).
+    """
+    raw = os.getenv("ALLOWED_ORIGINS", "*").strip()
+    if not raw or raw == "*":
+        return ["*"]
+    parts = [p.strip() for p in raw.split(",") if p.strip()]
+    if not parts:
+        return ["*"]
+    if parts == ["*"]:
+        return ["*"]
+    return parts
+
+
 def _get_int_env(name: str, default: int) -> int:
     """Safely read an integer from env with fallback."""
     value = os.getenv(name)
