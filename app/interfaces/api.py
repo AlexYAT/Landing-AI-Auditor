@@ -124,6 +124,10 @@ class AuditSuccessResponse(BaseModel):
     recommendations: list[Any]
     quick_wins: list[Any]
     rewrites: list[Any]
+    report_readable: dict[str, Any] | None = Field(
+        default=None,
+        description="Human-readable presentation (summary, issues_readable, recommendations_readable, quick_wins)",
+    )
 
 
 def _error_payload(code: str, message: str) -> dict[str, str]:

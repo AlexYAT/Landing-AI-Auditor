@@ -11,6 +11,7 @@ from app.core.presets import normalize_preset
 from app.providers.llm import OpenAiAuditProvider
 from app.services.analyzer import analyze_landing
 from app.services.parser import parse_landing
+from app.services.report_builder import build_human_report
 
 logger = logging.getLogger(__name__)
 
@@ -44,4 +45,5 @@ def run_landing_audit(
     report = audit_result.to_dict()
     report["language"] = effective_lang
     report["preset"] = effective_preset
+    report["report_readable"] = build_human_report(report)
     return report
