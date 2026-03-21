@@ -302,6 +302,19 @@ Recommendations (every object in the recommendations array):
 - If the landing JSON lacks detail, do NOT leave these fields blank: infer the most plausible concrete variant and state
   assumptions briefly inside the same fields if needed.
 
+Example of a good recommendation:
+
+{
+  "priority": "high",
+  "title": "Усилить оффер на первом экране",
+  "action": "Переписать оффер с фокусом на конкретный результат",
+  "expected_impact": "Рост конверсии первого экрана",
+  "implementation_for_craftum": "В блоке hero (первый экран) заменить текущий заголовок на новый текст. Добавить подзаголовок под заголовком и разместить его сразу под H1. Назвать блок 'Главное предложение'.",
+  "example_text": "Получите персональный разбор вашей ситуации и план выхода из эмоционального тупика за 30 дней. Начните менять свою жизнь уже сегодня с поддержкой специалиста."
+}
+
+- All recommendations MUST follow the structure and level of detail shown in the example above.
+
 Return STRICT JSON only.
 - No markdown.
 - No code fences.
