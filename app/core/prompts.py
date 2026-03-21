@@ -212,7 +212,7 @@ TASK_CONTEXT_AWARE: dict[str, dict[str, str]] = {
             "\n\nПравила task-aware анализа:\n"
             "- Сфокусируй summary на том, насколько страница способствует достижению этой цели.\n"
             "- Ранжируй recommendations: сначала действия, которые сильнее помогают этой цели; "
-            "в expected_effect явно связывай эффект с достижением этой цели.\n"
+            "в expected_impact явно связывай эффект с достижением этой цели.\n"
             "- Повышай severity и/или priority у проблем, которые прямо мешают этой цели; "
             "не помечай нерелевантные улучшения как high priority.\n"
             "- В quick_wins отдавай приоритет шагам, наиболее связанным с задачей.\n"
@@ -228,7 +228,7 @@ TASK_CONTEXT_AWARE: dict[str, dict[str, str]] = {
         "rules": (
             "\n\nTask-aware analysis rules:\n"
             "- Anchor the summary on how well the page supports this goal.\n"
-            "- Prioritize recommendations that most help this goal; tie expected_effect explicitly to that goal.\n"
+            "- Prioritize recommendations that most help this goal; tie expected_impact explicitly to that goal.\n"
             "- Raise severity and/or priority for issues that block this goal; do not mark loosely related tweaks as high priority.\n"
             "- In quick_wins, favor steps most aligned with the task.\n"
             "- Do not elevate changes weakly related to the stated goal."
@@ -293,18 +293,14 @@ Allowed issue categories only:
 - other
 
 Recommendations (every object in the recommendations array):
-Each recommendation follows this flow: problem → solution → implementation → example → effect.
-
-- priority: high|medium|low
-- problem: what is wrong or missing on the page (non-empty string).
-- solution: what to change in substance (non-empty string).
-- implementation_for_craftum: concrete steps in a visual site builder (e.g. Craftum): what to add, where to place it,
-  how to name the block (non-empty string).
-- example_text: ready-to-paste copy — specific wording, not vague advice; at least 1-2 full sentences (non-empty string).
-- expected_effect: expected business or conversion outcome (non-empty string).
-
-- problem, solution, implementation_for_craftum, example_text, and expected_effect MUST be non-empty strings.
+- First generate title and action clearly (short, concrete headline and what to do).
+- Then expand with implementation_for_craftum and example_text (builder steps and paste-ready copy).
+- priority, title, action, expected_impact, implementation_for_craftum, and example_text are all required string fields.
+- implementation_for_craftum and example_text MUST be non-empty strings. Empty strings are forbidden.
 - Пустые строки в implementation_for_craftum и example_text запрещены.
+- implementation_for_craftum: concrete steps for a visual site builder (e.g. Craftum): what block to add, where to place it,
+  how to name the block.
+- example_text: ready-to-paste copy — specific wording, not vague advice; at least 1-2 full sentences.
 - If the landing JSON lacks detail, do NOT leave these fields blank: infer the most plausible concrete variant and state
   assumptions briefly inside the same fields if needed.
 
@@ -312,11 +308,11 @@ Example of a good recommendation:
 
 {
   "priority": "high",
-  "problem": "Оффер на первом экране не формулирует конкретный результат для посетителя",
-  "solution": "Сформулировать оффер с явным конкретным результатом и понятным следующим шагом",
+  "title": "Усилить оффер на первом экране",
+  "action": "Переписать оффер с фокусом на конкретный результат",
+  "expected_impact": "Рост конверсии первого экрана",
   "implementation_for_craftum": "В блоке hero (первый экран) заменить текущий заголовок на новый текст. Добавить подзаголовок под заголовком и разместить его сразу под H1. Назвать блок 'Главное предложение'.",
-  "example_text": "Получите персональный разбор вашей ситуации и план выхода из эмоционального тупика за 30 дней. Начните менять свою жизнь уже сегодня с поддержкой специалиста.",
-  "expected_effect": "Рост конверсии первого экрана и рост заявок"
+  "example_text": "Получите персональный разбор вашей ситуации и план выхода из эмоционального тупика за 30 дней. Начните менять свою жизнь уже сегодня с поддержкой специалиста."
 }
 
 - All recommendations MUST follow the structure and level of detail shown in the example above.
@@ -350,11 +346,11 @@ OUTPUT FORMAT (STRICT JSON)
   "recommendations": [
     {
       "priority": "high|medium|low",
-      "problem": "string",
-      "solution": "string",
+      "title": "string",
+      "action": "string",
+      "expected_impact": "string",
       "implementation_for_craftum": "string",
-      "example_text": "string",
-      "expected_effect": "string"
+      "example_text": "string"
     }
   ],
   "quick_wins": [

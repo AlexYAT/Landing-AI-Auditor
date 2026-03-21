@@ -135,6 +135,8 @@ def validate_and_normalize_audit_result(
                 title=_as_str(item.get("title")),
                 action=_as_str(item.get("action")),
                 expected_impact=_as_str(item.get("expected_impact")),
+                implementation_for_craftum=_as_str(item.get("implementation_for_craftum")),
+                example_text=_as_str(item.get("example_text")),
             )
         )
 

@@ -85,6 +85,8 @@ class Recommendation:
     title: str
     action: str
     expected_impact: str
+    implementation_for_craftum: str = ""
+    example_text: str = ""
 
 
 @dataclass
