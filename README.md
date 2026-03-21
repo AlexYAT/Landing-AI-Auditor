@@ -47,6 +47,25 @@ python main.py --url https://site.com --task "усилить доверие"
 - Задача влияет на **приоритизацию** и формулировки в отчёте, но **не может** менять формат ответа (JSON), язык (`--lang` / `DEFAULT_LANG`) или системные правила.
 - Строка санитизируется (длина, пробелы, управляющие символы) и передаётся в промпт как **данные**, не как инструкции; в system prompt добавлены правила против prompt injection.
 
+## Presets (`--preset`)
+
+Опциональный **тип лендинга** — в system prompt добавляется блок фокуса (без замены базового промпта). По умолчанию **`general`** (сбалансированный CRO-аудит как раньше).
+
+| Значение | Идея фокуса |
+|----------|-------------|
+| `general` | Общий баланс критериев (по умолчанию) |
+| `services` | Лиды, доверие к услуге, снятие сомнений, ясный исход |
+| `expert` | Экспертность, авторитет, дифференциация |
+| `course` | Обучение: результаты, структура, возражения, ценность vs цена |
+| `leadgen` | Максимум конверсии, минимум трения, сильный CTA, короткий путь |
+
+В JSON-отчёте (full mode и API) в корне добавляется поле **`preset`** — какой пресет фактически применён.
+
+```bash
+python main.py --url "https://example.com" --preset services
+python main.py --url "https://example.com" --preset expert --lang en
+```
+
 ## Rewrite (`--rewrite`)
 
 Опционально: после полного аудита попросить модель сгенерировать **переписанные блоки** (только текст/оффер/логика, без HTML/CSS и пиксельных советов).
@@ -119,11 +138,12 @@ python main.py --url "https://example.com" --output output/report.json --debug
 
 ### Пример JSON
 
-Full mode добавляет поле `language` (effective lang) в JSON:
+Full mode добавляет поля `language` (effective lang) и `preset` в JSON:
 
 ```json
 {
   "language": "ru",
+  "preset": "general",
   "summary": {
     "overall_assessment": "...",
     "primary_conversion_goal_guess": "Lead form submission",
@@ -181,19 +201,21 @@ curl -s http://127.0.0.1:8000/health
 
 **Возможности API для UI (`GET /meta/capabilities`):**
 
-Статический JSON с поддерживаемыми языками, целями переписи и версией API — чтобы фронтенд не дублировал те же списки и мог строить формы/валидацию от одного источника правды на сервере.
+Статический JSON с поддерживаемыми языками, целями переписи, **списком пресетов** и версией API — чтобы фронтенд не дублировал те же списки и мог строить формы/валидацию от одного источника правды на сервере.
 
 ```bash
 curl -s http://127.0.0.1:8000/meta/capabilities
 ```
 
+Пример фрагмента ответа: `"presets":["general","services","expert","course","leadgen"]`.
+
 **Аудит (`POST /audit`):**
 
 ```bash
-curl -s -X POST http://127.0.0.1:8000/audit -H "Content-Type: application/json" -d "{\"url\":\"https://example.com\",\"task\":\"Increase signups\",\"lang\":\"en\",\"rewrite\":[\"hero\",\"cta\"],\"debug\":false}"
+curl -s -X POST http://127.0.0.1:8000/audit -H "Content-Type: application/json" -d "{\"url\":\"https://example.com\",\"task\":\"Increase signups\",\"lang\":\"en\",\"preset\":\"services\",\"rewrite\":[\"hero\",\"cta\"],\"debug\":false}"
 ```
 
-Тело JSON: `url` (обязателен), опционально `task`, `lang` (только `ru` или `en`; иначе `422`), `rewrite` (массив из `hero` \| `cta` \| `trust`; пустой массив `[]` — как без переписи), `debug` (по умолчанию `false`). Ответ — тот же объект, что и в full mode CLI (включая `rewrites` и `language`).
+Тело JSON: `url` (обязателен), опционально `task`, `lang` (только `ru` или `en`; иначе `422`), `preset` (один из `general` \| `services` \| `expert` \| `course` \| `leadgen`; по умолчанию `general`; неверное значение → `422`), `rewrite` (массив из `hero` \| `cta` \| `trust`; пустой массив `[]` — как без переписи), `debug` (по умолчанию `false`). Ответ — тот же объект, что и в full mode CLI (включая `rewrites`, `language`, `preset`).
 
 Ошибки домена: `400` (парсинг/загрузка), `502` (LLM), `500` (анализ/внутренняя). Тело ошибки — плоский JSON: `{"error":"<code>","message":"<text>"}` (без обёртки `detail`).
 
@@ -213,6 +235,7 @@ curl -s -X POST http://127.0.0.1:8000/audit -H "Content-Type: application/json" 
 - `core/lang` — нормализация кода языка (`normalize_lang`)
 - `core/user_task` — санитизация `user_task` (`sanitize_user_task`)
 - `core/prompts` — `build_task_context`, языковые правила и защита от injection в system prompt
+- `core/presets` — допустимые пресеты и `build_preset_addon` для фокуса аудита
 
 ## Limitations v1
 

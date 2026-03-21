@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from starlette.middleware.cors import CORSMiddleware
 
 from app.core.lang import SUPPORTED_LANGS_API_ORDER
+from app.core.presets import PRESETS_API_ORDER
 from app.core.rewrite_targets import REWRITE_TARGETS_API_ORDER
 from app.interfaces.api import API_VERSION, app
 from app.providers.llm import LlmProviderError
@@ -27,6 +28,7 @@ _MINIMAL_REPORT = {
     "quick_wins": [],
     "rewrites": [],
     "language": "ru",
+    "preset": "general",
 }
 
 
@@ -50,6 +52,7 @@ class TestCapabilitiesEndpoint(unittest.TestCase):
         data = response.json()
         self.assertEqual(data["supported_languages"], list(SUPPORTED_LANGS_API_ORDER))
         self.assertEqual(data["rewrite_targets"], list(REWRITE_TARGETS_API_ORDER))
+        self.assertEqual(data["presets"], list(PRESETS_API_ORDER))
         self.assertTrue(data["debug_supported"])
         self.assertEqual(data["api_version"], API_VERSION)
 
@@ -89,6 +92,7 @@ class TestAuditEndpoint(unittest.TestCase):
         mock_run.assert_called_once()
         kwargs = mock_run.call_args.kwargs
         self.assertEqual(kwargs["rewrite_targets"], None)
+        self.assertEqual(kwargs["preset"], "general")
         self.assertEqual(mock_run.call_args.args[0], "https://example.com")
 
     @patch("app.interfaces.api.run_landing_audit")
@@ -112,6 +116,17 @@ class TestAuditEndpoint(unittest.TestCase):
         kwargs = mock_run.call_args.kwargs
         self.assertEqual(kwargs["rewrite_targets"], ("hero", "cta"))
         self.assertEqual(kwargs["effective_lang"], "en")
+        self.assertEqual(kwargs["preset"], "general")
+
+    @patch("app.interfaces.api.run_landing_audit")
+    def test_post_audit_preset_services_passed(self, mock_run: MagicMock) -> None:
+        mock_run.return_value = {**_MINIMAL_REPORT, "preset": "services"}
+        response = self.client.post(
+            "/audit",
+            json={"url": "https://example.com", "preset": "services"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(mock_run.call_args.kwargs["preset"], "services")
 
     @patch("app.interfaces.api.run_landing_audit")
     def test_post_audit_rewrite_empty_behaves_like_no_rewrite(self, mock_run: MagicMock) -> None:
@@ -170,6 +185,13 @@ class TestAuditEndpoint(unittest.TestCase):
         response = self.client.post(
             "/audit",
             json={"url": "https://example.com", "rewrite": ["hero", "footer"]},
+        )
+        self.assertEqual(response.status_code, 422)
+
+    def test_invalid_preset_rejected(self) -> None:
+        response = self.client.post(
+            "/audit",
+            json={"url": "https://example.com", "preset": "unknown"},
         )
         self.assertEqual(response.status_code, 422)
 

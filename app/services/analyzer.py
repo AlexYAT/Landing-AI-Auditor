@@ -6,6 +6,7 @@ import logging
 from typing import Any, Sequence
 
 from app.core.lang import DEFAULT_LANG, get_analyzer_messages, normalize_lang
+from app.core.presets import DEFAULT_PRESET
 from app.core.rewrite_targets import ALLOWED_REWRITE_TARGETS
 from app.core.user_task import sanitize_user_task
 from app.core.models import (
@@ -176,11 +177,13 @@ def analyze_landing(
     provider: OpenAiAuditProvider,
     lang: str = DEFAULT_LANG,
     rewrite_targets: Sequence[str] | None = None,
+    preset: str = DEFAULT_PRESET,
 ) -> AuditResult:
     """Run LLM audit and normalize response into strongly typed result."""
     effective_lang = normalize_lang(lang)
     sanitized = sanitize_user_task(user_task)
     logger.info(f"Task-aware analysis enabled: {'yes' if sanitized else 'no'}")
+    logger.info("Preset: %s", preset)
     if rewrite_targets:
         logger.info("Rewrite targets: %s", tuple(rewrite_targets))
     if sanitized:
@@ -192,6 +195,7 @@ def analyze_landing(
             sanitized_user_task=sanitized,
             lang=effective_lang,
             rewrite_targets=rewrite_targets,
+            preset=preset,
         )
         return validate_and_normalize_audit_result(
             raw,

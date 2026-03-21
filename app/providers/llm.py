@@ -11,6 +11,7 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 
 from app.core.config import Settings
 from app.core.lang import DEFAULT_LANG
+from app.core.presets import DEFAULT_PRESET
 from app.core.prompts import build_system_prompt, build_user_prompt
 
 
@@ -95,6 +96,7 @@ class OpenAiAuditProvider:
         sanitized_user_task: str | None,
         lang: str = DEFAULT_LANG,
         rewrite_targets: Sequence[str] | None = None,
+        preset: str = DEFAULT_PRESET,
     ) -> dict[str, Any]:
         """Send landing context to LLM and return parsed JSON."""
         try:
@@ -105,7 +107,11 @@ class OpenAiAuditProvider:
                 messages=[
                     {
                         "role": "system",
-                        "content": build_system_prompt(lang, rewrite_targets=rewrite_targets),
+                        "content": build_system_prompt(
+                            lang,
+                            rewrite_targets=rewrite_targets,
+                            preset=preset,
+                        ),
                     },
                     {
                         "role": "user",

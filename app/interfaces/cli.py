@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 
+from app.core.presets import ALLOWED_PRESETS, DEFAULT_PRESET
 from app.core.rewrite_targets import parse_rewrite_targets_arg
 
 
@@ -50,5 +51,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="TARGETS",
         help='Comma-separated content rewrites: hero, cta, trust (e.g. "hero" or "hero,cta,trust")',
+    )
+    parser.add_argument(
+        "--preset",
+        default=DEFAULT_PRESET,
+        choices=sorted(ALLOWED_PRESETS),
+        help="Landing type preset for analysis focus (default: general)",
     )
     return parser

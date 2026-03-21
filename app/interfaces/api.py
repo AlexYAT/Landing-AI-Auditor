@@ -14,6 +14,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.core.config import get_cors_allowed_origins, get_settings
 from app.core.lang import SUPPORTED_LANGS, SUPPORTED_LANGS_API_ORDER, resolve_effective_lang
+from app.core.presets import PRESETS_API_ORDER
 from app.core.rewrite_targets import REWRITE_TARGETS_API_ORDER
 from app.providers.llm import LlmProviderError
 from app.services.analyzer import AnalyzerError
@@ -52,6 +53,7 @@ class CapabilitiesResponse(BaseModel):
 
     supported_languages: list[str]
     rewrite_targets: list[str]
+    presets: list[str]
     debug_supported: bool = True
     api_version: str
 
@@ -77,6 +79,10 @@ class AuditRequest(BaseModel):
         description="Optional rewrite blocks (subset of hero, cta, trust); empty list means no rewrites",
     )
     debug: bool = Field(default=False, description="Save parser debug artifacts under output/debug/<host>")
+    preset: Literal["general", "services", "expert", "course", "leadgen"] = Field(
+        default="general",
+        description="Landing type preset (analysis focus); default general",
+    )
 
     @field_validator("url")
     @classmethod
@@ -151,6 +157,7 @@ def get_capabilities() -> CapabilitiesResponse:
     return CapabilitiesResponse(
         supported_languages=list(SUPPORTED_LANGS_API_ORDER),
         rewrite_targets=list(REWRITE_TARGETS_API_ORDER),
+        presets=list(PRESETS_API_ORDER),
         debug_supported=True,
         api_version=API_VERSION,
     )
@@ -191,6 +198,7 @@ def post_audit(body: AuditRequest) -> dict[str, Any]:
             user_task=body.task,
             effective_lang=effective_lang,
             rewrite_targets=rewrite_targets,
+            preset=body.preset,
             debug_dir=debug_dir,
         )
     except ParsingError as exc:

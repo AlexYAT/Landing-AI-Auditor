@@ -98,6 +98,7 @@ def run() -> int:
             user_task=args.task,
             effective_lang=effective_lang,
             rewrite_targets=rewrite_targets,
+            preset=getattr(args, "preset", None),
             debug_dir=debug_dir,
         )
         if mode == "assignment":

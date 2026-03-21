@@ -6,6 +6,7 @@ import json
 from typing import Sequence
 
 from app.core.lang import DEFAULT_LANG, normalize_lang
+from app.core.presets import DEFAULT_PRESET, build_preset_addon, preset_section_title
 from app.core.rewrite_targets import ALLOWED_REWRITE_TARGETS
 
 REWRITE_BLOCK_GUIDE_RU: dict[str, str] = {
@@ -354,8 +355,9 @@ def build_task_context(sanitized_user_task: str | None, lang: str) -> str:
 def build_system_prompt(
     lang: str,
     rewrite_targets: Sequence[str] | None = None,
+    preset: str = DEFAULT_PRESET,
 ) -> str:
-    """Build full system prompt: base + language policy + injection guard + optional rewrite rules."""
+    """Build full system prompt: base + language policy + injection guard + optional preset focus + rewrite rules."""
     code = normalize_lang(lang)
     rule = LANG_RULES.get(code, LANG_RULES[DEFAULT_LANG])
     guard = INJECTION_GUARDS.get(code, INJECTION_GUARDS[DEFAULT_LANG])
@@ -368,6 +370,9 @@ def build_system_prompt(
         "User task / prompt-injection policy:",
         guard,
     ]
+    preset_addon = build_preset_addon(preset, lang)
+    if preset_addon:
+        parts.extend(["", preset_section_title(lang), preset_addon])
     if rewrite_targets:
         normalized = _rewrite_targets_normalized(rewrite_targets)
         normalized = tuple(t for t in normalized if t in ALLOWED_REWRITE_TARGETS)
