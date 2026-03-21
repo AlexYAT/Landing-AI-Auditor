@@ -15,6 +15,7 @@ from app.interfaces.api import API_VERSION, app
 from app.providers.llm import LlmProviderError
 from app.services.analyzer import AnalyzerError
 from app.services.parser import ParsingError
+from app.services.report_builder import build_human_report
 
 _MINIMAL_REPORT = {
     "summary": {
@@ -30,6 +31,35 @@ _MINIMAL_REPORT = {
     "language": "ru",
     "preset": "general",
 }
+
+
+class TestUiDemo(unittest.TestCase):
+    def setUp(self) -> None:
+        self.client = TestClient(app)
+
+    def test_get_root_returns_html_form(self) -> None:
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/html", response.headers.get("content-type", ""))
+        self.assertIn("Run audit", response.text)
+
+    @patch("app.interfaces.api.run_landing_audit")
+    def test_ui_audit_post_shows_result(self, mock_run: MagicMock) -> None:
+        rep = dict(_MINIMAL_REPORT)
+        rep["report_readable"] = build_human_report(rep)
+        mock_run.return_value = rep
+        response = self.client.post(
+            "/ui/audit",
+            data={
+                "url": "https://example.com",
+                "task": "",
+                "preset": "general",
+                "lang": "ru",
+                "output_mode": "readable",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Summary", response.text)
 
 
 class TestHealthEndpoint(unittest.TestCase):

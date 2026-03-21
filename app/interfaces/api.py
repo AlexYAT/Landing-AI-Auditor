@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlparse
 
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, Form, HTTPException, Request, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from starlette.middleware.cors import CORSMiddleware
 
 from app.core.config import get_cors_allowed_origins, get_settings
@@ -20,10 +22,14 @@ from app.providers.llm import LlmProviderError
 from app.services.analyzer import AnalyzerError
 from app.services.audit_pipeline import run_landing_audit
 from app.services.parser import ParsingError
+from app.services.report_builder import build_human_report
 
 logger = logging.getLogger(__name__)
 
 API_VERSION = "v1"
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+templates = Jinja2Templates(directory=str(_PROJECT_ROOT / "templates"))
 
 app = FastAPI(
     title="Landing AI Auditor",
@@ -134,6 +140,96 @@ def _error_payload(code: str, message: str) -> dict[str, str]:
     return {"error": code, "message": message}
 
 
+def _format_summary_display(summary: Any) -> str:
+    if summary is None:
+        return ""
+    if isinstance(summary, dict):
+        return json.dumps(summary, ensure_ascii=False, indent=2)
+    return str(summary)
+
+
+def _quick_win_lines(items: list[Any]) -> list[str]:
+    lines: list[str] = []
+    for item in items:
+        if isinstance(item, dict):
+            t = str(item.get("title", "")).strip()
+            a = str(item.get("action", "")).strip()
+            if t and a:
+                lines.append(f"{t}: {a}")
+            elif t:
+                lines.append(t)
+            elif a:
+                lines.append(a)
+            else:
+                lines.append(str(item))
+        else:
+            lines.append(str(item))
+    return lines
+
+
+def _readable_sections(report: dict[str, Any]) -> dict[str, Any]:
+    rr = report.get("report_readable")
+    if not isinstance(rr, dict):
+        rr = build_human_report(report)
+    return {
+        "rr": rr,
+        "summary_display": _format_summary_display(rr.get("summary")),
+        "issues_list": list(rr.get("issues_readable") or []),
+        "rec_blocks": list(rr.get("recommendations_readable") or []),
+        "qw_lines": _quick_win_lines(list(rr.get("quick_wins") or [])),
+    }
+
+
+def _run_audit_from_body(body: AuditRequest) -> dict[str, Any]:
+    """Shared audit call for JSON API and demo UI (same as previous inline ``post_audit`` body)."""
+    settings = get_settings()
+    effective_lang = resolve_effective_lang(cli_lang=body.lang, env_lang=settings.default_lang)
+    rewrite_targets: tuple[str, ...] | None = (
+        tuple(body.rewrite) if body.rewrite else None
+    )
+    debug_dir: Path | None = None
+    if body.debug:
+        host = urlparse(body.url).netloc.replace(":", "_") or "unknown"
+        debug_dir = Path("output") / "debug" / host
+        logger.info("API debug: writing parser artifacts to %s", debug_dir)
+    return run_landing_audit(
+        body.url,
+        settings=settings,
+        user_task=body.task,
+        effective_lang=effective_lang,
+        rewrite_targets=rewrite_targets,
+        preset=body.preset,
+        debug_dir=debug_dir,
+    )
+
+
+def _ui_base_context(
+    *,
+    form: dict[str, str],
+    error: str | None = None,
+    report: dict[str, Any] | None = None,
+    output_mode: str = "readable",
+) -> dict[str, Any]:
+    ctx: dict[str, Any] = {
+        "form": form,
+        "error": error,
+        "preset_options": list(PRESETS_API_ORDER),
+        "json_pretty": None,
+        "rr": None,
+        "summary_display": "",
+        "issues_list": [],
+        "rec_blocks": [],
+        "qw_lines": [],
+    }
+    if report is None:
+        return ctx
+    if output_mode == "json":
+        ctx["json_pretty"] = json.dumps(report, ensure_ascii=False, indent=2)
+        return ctx
+    ctx.update(_readable_sections(report))
+    return ctx
+
+
 @app.exception_handler(HTTPException)
 async def _http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     """Return API error bodies as flat ``{error, message}`` instead of ``{detail: ...}``."""
@@ -149,6 +245,100 @@ async def _http_exception_handler(request: Request, exc: HTTPException) -> JSONR
 def get_health() -> HealthResponse:
     """Liveness probe for load balancers and UI integration."""
     return HealthResponse()
+
+
+@app.get("/", include_in_schema=False)
+def ui_index(request: Request) -> Any:
+    """Minimal HTML demo: form only."""
+    return templates.TemplateResponse(
+        request,
+        "index.html",
+        _ui_base_context(
+            form={
+                "url": "",
+                "task": "",
+                "preset": "general",
+                "lang": "",
+                "output_mode": "readable",
+            },
+        ),
+    )
+
+
+@app.post("/ui/audit", include_in_schema=False)
+def ui_audit_submit(
+    request: Request,
+    url: str = Form(...),
+    task: str = Form(""),
+    preset: str = Form("general"),
+    lang: str = Form(""),
+    output_mode: str = Form("readable"),
+) -> Any:
+    """Demo UI: same pipeline as ``POST /audit``; renders result HTML."""
+    form = {
+        "url": url.strip(),
+        "task": task.strip(),
+        "preset": preset.strip() or "general",
+        "lang": lang.strip(),
+        "output_mode": output_mode if output_mode in ("json", "readable") else "readable",
+    }
+    try:
+        body = AuditRequest(
+            url=form["url"],
+            task=form["task"] or None,
+            preset=form["preset"],  # type: ignore[arg-type]
+            lang=form["lang"] or None,
+        )
+    except ValidationError as exc:
+        return templates.TemplateResponse(
+            request,
+            "index.html",
+            _ui_base_context(form=form, error="Invalid input: " + str(exc)),
+            status_code=422,
+        )
+    try:
+        report = _run_audit_from_body(body)
+    except ParsingError as exc:
+        return templates.TemplateResponse(
+            request,
+            "index.html",
+            _ui_base_context(form=form, error=str(exc)),
+            status_code=400,
+        )
+    except LlmProviderError as exc:
+        return templates.TemplateResponse(
+            request,
+            "index.html",
+            _ui_base_context(form=form, error=str(exc)),
+            status_code=502,
+        )
+    except AnalyzerError as exc:
+        return templates.TemplateResponse(
+            request,
+            "index.html",
+            _ui_base_context(form=form, error=str(exc)),
+            status_code=500,
+        )
+    except Exception:
+        logger.exception("UI audit unexpected failure")
+        return templates.TemplateResponse(
+            request,
+            "index.html",
+            _ui_base_context(
+                form=form,
+                error="An unexpected error occurred while processing the audit.",
+            ),
+            status_code=500,
+        )
+    return templates.TemplateResponse(
+        request,
+        "index.html",
+        _ui_base_context(
+            form=form,
+            report=report,
+            output_mode=form["output_mode"],
+        ),
+    )
 
 
 @app.get("/meta/capabilities", response_model=CapabilitiesResponse, tags=["meta"])
@@ -183,28 +373,8 @@ def post_audit(body: AuditRequest) -> dict[str, Any]:
 
     Response matches CLI full-mode JSON: audit fields plus ``language`` and ``rewrites`` (possibly empty).
     """
-    settings = get_settings()
-    effective_lang = resolve_effective_lang(cli_lang=body.lang, env_lang=settings.default_lang)
-    rewrite_targets: tuple[str, ...] | None = (
-        tuple(body.rewrite) if body.rewrite else None
-    )
-
-    debug_dir: Path | None = None
-    if body.debug:
-        host = urlparse(body.url).netloc.replace(":", "_") or "unknown"
-        debug_dir = Path("output") / "debug" / host
-        logger.info("API debug: writing parser artifacts to %s", debug_dir)
-
     try:
-        return run_landing_audit(
-            body.url,
-            settings=settings,
-            user_task=body.task,
-            effective_lang=effective_lang,
-            rewrite_targets=rewrite_targets,
-            preset=body.preset,
-            debug_dir=debug_dir,
-        )
+        return _run_audit_from_body(body)
     except ParsingError as exc:
         logger.info("Audit parsing failed: %s", exc)
         raise HTTPException(
