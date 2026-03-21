@@ -118,6 +118,10 @@ class AuditSummary:
     top_risks: list[str] = field(default_factory=list)
 
 
+def _default_rewrite_texts() -> dict[str, str]:
+    return {"hero": "", "cta": "", "trust": ""}
+
+
 @dataclass
 class AuditResult:
     """Final audit report in JSON-friendly structure."""
@@ -127,6 +131,8 @@ class AuditResult:
     recommendations: list[Recommendation] = field(default_factory=list)
     quick_wins: list[QuickWin] = field(default_factory=list)
     rewrites: list[ContentRewrite] = field(default_factory=list)
+    # Ready-to-paste strings per block (distinct from ``rewrites`` array for structured rewrite mode).
+    rewrite_texts: dict[str, str] = field(default_factory=_default_rewrite_texts)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert model to dictionary."""

@@ -143,7 +143,8 @@ Prefer the rewrites array order: {order}.
 LANG_RULES: dict[str, str] = {
     "ru": (
         "Отвечай строго на русском языке. Весь пользовательский текст в summary, issues, "
-        "recommendations, quick_wins и в rewrites (поля before, after, why) должен быть строго на русском. "
+        "recommendations, quick_wins, в rewrite_texts (hero, cta, trust) и в rewrites (поля before, after, why) "
+        "должен быть строго на русском. "
         "Не используй английский в этих полях. Если ты используешь другой язык в текстовых полях ответа, это ошибка. "
         "Все формулировки должны звучать естественно для носителя русского языка. Избегай "
         "буквального перевода. Поля severity, priority и category оставляй латиницей в значениях "
@@ -151,7 +152,8 @@ LANG_RULES: dict[str, str] = {
     ),
     "en": (
         "Respond strictly in English. All user-facing text in summary, issues, recommendations, "
-        "quick_wins, and in rewrites (fields before, after, why) must be strictly in English. "
+        "quick_wins, in rewrite_texts (hero, cta, trust), and in rewrites (fields before, after, why) "
+        "must be strictly in English. "
         "Do not use Russian or other languages in those fields. If you use another language in textual fields "
         "of the response, that is an error. All wording must sound natural to a native English speaker. "
         "Avoid literal translation. Keep severity, priority, and category field values exactly as in the schema "
@@ -317,6 +319,12 @@ Example of a good recommendation:
 
 - All recommendations MUST follow the structure and level of detail shown in the example above.
 
+rewrite_texts (required top-level object; use key ``rewrite_texts`` — not the same as the optional ``rewrites`` array used in structured rewrite mode):
+- hero: paste-ready first-screen copy (headline + subheadline); concrete, not generic; at least 1-2 sentences where appropriate.
+- cta: button (or main CTA) label plus a short supporting line; ready to paste.
+- trust: trust-section copy (testimonial, case snippet, or guarantee framing); ground in page data; do not invent metrics or names not supported by the landing JSON.
+- Apply user business task (when present) and landing preset to tone and emphasis.
+
 Return STRICT JSON only.
 - No markdown.
 - No code fences.
@@ -359,7 +367,12 @@ OUTPUT FORMAT (STRICT JSON)
       "action": "string",
       "why_it_matters": "string"
     }
-  ]
+  ],
+  "rewrite_texts": {
+    "hero": "string",
+    "cta": "string",
+    "trust": "string"
+  }
 }
 """.strip()
 

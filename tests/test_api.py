@@ -28,6 +28,7 @@ _MINIMAL_REPORT = {
     "recommendations": [],
     "quick_wins": [],
     "rewrites": [],
+    "rewrite_texts": {"hero": "", "cta": "", "trust": ""},
     "language": "ru",
     "preset": "general",
 }

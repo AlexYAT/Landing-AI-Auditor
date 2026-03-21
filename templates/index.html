@@ -100,6 +100,17 @@
     {% else %}
     <p class="muted">—</p>
     {% endif %}
+
+    {% if rewrite_texts and (rewrite_texts.get('hero') or rewrite_texts.get('cta') or rewrite_texts.get('trust')) %}
+    <h2>Rewrites</h2>
+    <p class="muted">Ready-to-paste blocks (<code>rewrite_texts</code>)</p>
+    <h3 style="font-size:0.95rem;margin-top:0.75rem;">Hero</h3>
+    <pre class="block">{{ rewrite_texts.get('hero', '') }}</pre>
+    <h3 style="font-size:0.95rem;margin-top:0.75rem;">CTA</h3>
+    <pre class="block">{{ rewrite_texts.get('cta', '') }}</pre>
+    <h3 style="font-size:0.95rem;margin-top:0.75rem;">Trust</h3>
+    <pre class="block">{{ rewrite_texts.get('trust', '') }}</pre>
+    {% endif %}
   </div>
   {% endif %}
 

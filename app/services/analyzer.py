@@ -86,6 +86,18 @@ def _normalize_rewrites_ordered(
     return [by_block[b] for b in requested_ordered if b in by_block]
 
 
+def _normalize_rewrite_texts(data: dict[str, Any]) -> dict[str, str]:
+    """Parse ``rewrite_texts`` object (hero/cta/trust paste-ready copy) from model JSON."""
+    raw = data.get("rewrite_texts")
+    if not isinstance(raw, dict):
+        raw = {}
+    return {
+        "hero": _as_str(raw.get("hero")),
+        "cta": _as_str(raw.get("cta")),
+        "trust": _as_str(raw.get("trust")),
+    }
+
+
 def validate_and_normalize_audit_result(
     data: dict[str, Any],
     lang: str = DEFAULT_LANG,
@@ -164,12 +176,15 @@ def validate_and_normalize_audit_result(
         if ordered:
             rewrites = _normalize_rewrites_ordered(data, tuple(ordered))
 
+    rewrite_texts = _normalize_rewrite_texts(data)
+
     return AuditResult(
         summary=summary,
         issues=issues,
         recommendations=recommendations,
         quick_wins=quick_wins,
         rewrites=rewrites,
+        rewrite_texts=rewrite_texts,
     )
 
 

@@ -130,6 +130,10 @@ class AuditSuccessResponse(BaseModel):
     recommendations: list[Any]
     quick_wins: list[Any]
     rewrites: list[Any]
+    rewrite_texts: dict[str, str] | None = Field(
+        default=None,
+        description="Paste-ready hero/cta/trust copy (distinct from structured rewrites array)",
+    )
     report_readable: dict[str, Any] | None = Field(
         default=None,
         description="Human-readable presentation (summary, issues_readable, recommendations_readable, quick_wins)",
@@ -220,6 +224,7 @@ def _ui_base_context(
         "issues_list": [],
         "rec_blocks": [],
         "qw_lines": [],
+        "rewrite_texts": None,
     }
     if report is None:
         return ctx
@@ -227,6 +232,9 @@ def _ui_base_context(
         ctx["json_pretty"] = json.dumps(report, ensure_ascii=False, indent=2)
         return ctx
     ctx.update(_readable_sections(report))
+    rt = report.get("rewrite_texts")
+    if isinstance(rt, dict):
+        ctx["rewrite_texts"] = rt
     return ctx
 
 
