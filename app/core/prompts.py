@@ -321,7 +321,8 @@ Return STRICT JSON only.
 - No text before or after JSON.
 - Always return all top-level keys with correct types.
 
-JSON schema:
+OUTPUT FORMAT (STRICT JSON)
+
 {
   "summary": {
     "overall_assessment": "string",
@@ -346,8 +347,8 @@ JSON schema:
       "title": "string",
       "action": "string",
       "expected_impact": "string",
-      "implementation_for_craftum": "string (required, non-empty)",
-      "example_text": "string (required, non-empty)"
+      "implementation_for_craftum": "string",
+      "example_text": "string"
     }
   ],
   "quick_wins": [
