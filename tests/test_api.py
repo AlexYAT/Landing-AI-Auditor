@@ -63,7 +63,7 @@ class TestUiDemo(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("text/html", response.headers.get("content-type", ""))
         self.assertIn("Run audit", response.text)
-        self.assertIn("History", response.text)
+        self.assertIn("История аудитов", response.text)
 
     @patch("app.interfaces.api.run_landing_audit")
     def test_ui_audit_post_shows_result(self, mock_run: MagicMock) -> None:
@@ -81,7 +81,7 @@ class TestUiDemo(unittest.TestCase):
             },
         )
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Summary", response.text)
+        self.assertIn("Общая оценка", response.text)
 
 
 class TestAuditsHistory(unittest.TestCase):
@@ -123,7 +123,7 @@ class TestAuditsHistory(unittest.TestCase):
                     params={"filename": "my-astro_ru_2026-03-22_12-23.json", "output_mode": "readable"},
                 )
                 self.assertEqual(response.status_code, 200)
-                self.assertIn("Summary", response.text)
+                self.assertIn("Общая оценка", response.text)
 
     def test_ui_open_saved_rejects_invalid_name(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

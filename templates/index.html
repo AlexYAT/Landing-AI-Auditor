@@ -7,8 +7,15 @@
   <style>
     :root { font-family: system-ui, Segoe UI, Roboto, sans-serif; line-height: 1.45; color: #1a1a1a; }
     body { max-width: 56rem; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+    .hero { padding: 1.5rem 1.25rem 1.75rem; margin: 0 -0.25rem 1.5rem; border-radius: 12px; background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%); border: 1px solid #e2e8f0; }
+    .hero h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 0.5rem; letter-spacing: -0.02em; color: #0f172a; border: none; padding: 0; }
+    .hero .hero-sub { font-size: 0.98rem; color: #475569; margin: 0; max-width: 36rem; line-height: 1.5; }
     h1 { font-size: 1.35rem; font-weight: 600; margin: 0 0 1rem; }
     h2 { font-size: 1.05rem; margin: 1.25rem 0 0.5rem; border-bottom: 1px solid #ddd; padding-bottom: 0.25rem; }
+    h2.section-title { border-bottom-color: #cbd5e1; font-weight: 600; color: #0f172a; }
+    .next-action-card { margin: 0 0 1.25rem; padding: 1rem 1.1rem; border-radius: 10px; border: 1px solid #fdba74; background: linear-gradient(180deg, #fff7ed 0%, #fffbeb 100%); box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+    .next-action-card h2 { margin-top: 0; border-bottom: none; padding-bottom: 0; font-size: 1.1rem; }
+    .next-action-card p:last-child { margin-bottom: 0; }
     label { display: block; font-size: 0.85rem; font-weight: 500; margin: 0.75rem 0 0.25rem; }
     input[type="text"], textarea, select { width: 100%; max-width: 100%; box-sizing: border-box; padding: 0.45rem 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95rem; }
     textarea { min-height: 4rem; resize: vertical; }
@@ -33,15 +40,18 @@
     button.compare-btn:hover { background: #115e59; }
     button.compare-btn.is-selected { outline: 2px solid #f59e0b; }
     #compare-hint { font-size: 0.8rem; color: #64748b; margin: 0.35rem 0 0; min-height: 1.2em; }
-    #compare-result { display: none; margin-top: 0.75rem; padding: 1rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.85rem; white-space: pre-wrap; }
+    #compare-progress-label { display: none; margin-top: 0.75rem; padding: 0.65rem 0.85rem; font-size: 0.92rem; font-weight: 600; color: #0f766e; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; }
+    #compare-result { display: none; margin-top: 0.75rem; padding: 1rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.85rem; white-space: pre-wrap; }
     #compare-error { display: none; margin-top: 0.5rem; color: #991b1b; font-size: 0.85rem; }
   </style>
 </head>
 <body>
-  <h1>Landing AI Auditor</h1>
-  <p class="muted">Manual audit (uses the same pipeline as <code>POST /audit</code>).</p>
+  <header class="hero">
+    <h1>Landing AI Auditor</h1>
+    <p class="hero-sub">Показывает, что мешает конверсии на лендинге и даёт готовые действия для роста</p>
+  </header>
 
-  <h2>History</h2>
+  <h2 class="section-title" style="margin-top:0">История аудитов</h2>
   <p class="muted">Saved audits in <code>audits/</code> (same files as CLI history).</p>
   {% if audit_history %}
   <ul class="audit-history">
@@ -61,6 +71,7 @@
   {% endif %}
   <p id="compare-hint"></p>
   <div id="compare-error"></div>
+  <div id="compare-progress-label"></div>
   <pre id="compare-result"></pre>
 
   <form method="post" action="/ui/audit">
@@ -106,77 +117,13 @@
 
   {% if rr and not json_pretty %}
   <div class="result">
-    <h2>Summary</h2>
-    {% set s = rr.summary | default(none) %}
-    {% if s is mapping
-        and 'overall_assessment' in s
-        and 'primary_conversion_goal_guess' in s
-        and 'top_strengths' in s
-        and 'top_risks' in s %}
-    <p><strong>Overall:</strong></p>
-    <p>{{ s.overall_assessment }}</p>
-    <p><strong>Primary goal:</strong></p>
-    <p>{{ s.primary_conversion_goal_guess }}</p>
-    <p><strong>Strengths:</strong></p>
-    <ul class="issues">
-      {% for line in s.top_strengths|default([], true) %}
-      <li>{{ line }}</li>
-      {% endfor %}
-    </ul>
-    <p><strong>Risks:</strong></p>
-    <ul class="issues">
-      {% for line in s.top_risks|default([], true) %}
-      <li>{{ line }}</li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <pre class="block">{{ summary_display }}</pre>
-    {% endif %}
-
-    <h2>Issues</h2>
-    {% if issues_list %}
-    <ul class="issues">
-      {% for line in issues_list %}
-      <li>{{ line }}</li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="muted">—</p>
-    {% endif %}
-
-    <h2>Recommendations</h2>
-    {% for block in rec_blocks %}
-    <pre class="block">{{ block }}</pre>
-    {% else %}
-    <p class="muted">—</p>
-    {% endfor %}
-
-    <h2>Quick wins</h2>
-    {% if qw_lines %}
-    <ul class="issues">
-      {% for line in qw_lines %}
-      <li>{{ line }}</li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="muted">—</p>
-    {% endif %}
-
     {% set bar = rr.block_analysis_readable | default(none) %}
     {% if bar %}
     {% set mb = bar.missing_blocks | default([]) %}
     {% set na = bar.next_action | default({}) %}
-    {% if mb or na.type or na.priority or na.reason or na.why_now or na.placement or na.example or na.implementation_for_craftum or na.expected_impact or na.confidence %}
-    {% if mb %}
-    <h2>Missing blocks</h2>
-    <ul class="issues">
-      {% for line in mb %}
-      <li>{{ line }}</li>
-      {% endfor %}
-    </ul>
-    {% endif %}
     {% if na.type or na.priority or na.reason or na.why_now or na.placement or na.example or na.implementation_for_craftum or na.expected_impact or na.confidence %}
-    <h2>Next action</h2>
+    <div class="next-action-card">
+    <h2>🔥 Главное действие</h2>
     {% if na.type %}
     <p><strong>Type:</strong> {{ na.type }}</p>
     {% endif %}
@@ -213,12 +160,76 @@
     {% if na.confidence and na.confidence > 0 %}
     <p><strong>Confidence:</strong> {{ na.confidence }}</p>
     {% endif %}
+    </div>
     {% endif %}
+    {% if mb %}
+    <h2 class="section-title">Недостающие блоки</h2>
+    <ul class="issues">
+      {% for line in mb %}
+      <li>{{ line }}</li>
+      {% endfor %}
+    </ul>
     {% endif %}
     {% endif %}
 
+    <h2 class="section-title">Общая оценка</h2>
+    {% set s = rr.summary | default(none) %}
+    {% if s is mapping
+        and 'overall_assessment' in s
+        and 'primary_conversion_goal_guess' in s
+        and 'top_strengths' in s
+        and 'top_risks' in s %}
+    <p><strong>Overall:</strong></p>
+    <p>{{ s.overall_assessment }}</p>
+    <p><strong>Primary goal:</strong></p>
+    <p>{{ s.primary_conversion_goal_guess }}</p>
+    <p><strong>Strengths:</strong></p>
+    <ul class="issues">
+      {% for line in s.top_strengths|default([], true) %}
+      <li>{{ line }}</li>
+      {% endfor %}
+    </ul>
+    <p><strong>Risks:</strong></p>
+    <ul class="issues">
+      {% for line in s.top_risks|default([], true) %}
+      <li>{{ line }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <pre class="block">{{ summary_display }}</pre>
+    {% endif %}
+
+    <h2 class="section-title">🔥 Проблемы</h2>
+    {% if issues_list %}
+    <ul class="issues">
+      {% for line in issues_list %}
+      <li>{{ line }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">—</p>
+    {% endif %}
+
+    <h2 class="section-title">🚀 Что улучшить</h2>
+    {% for block in rec_blocks %}
+    <pre class="block">{{ block }}</pre>
+    {% else %}
+    <p class="muted">—</p>
+    {% endfor %}
+
+    <h2 class="section-title">Quick wins</h2>
+    {% if qw_lines %}
+    <ul class="issues">
+      {% for line in qw_lines %}
+      <li>{{ line }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">—</p>
+    {% endif %}
+
     {% if rr.action_roadmap_steps %}
-    <h2>Action Plan</h2>
+    <h2 class="section-title">📈 План роста</h2>
     {% for st in rr.action_roadmap_steps %}
     <p><strong>Step {{ st.step }}.</strong>{% if st.priority %} [{{ st.priority|upper }}]{% endif %} {{ st.action }}</p>
     {% if st.reason %}
@@ -276,6 +287,11 @@
   var hint = document.getElementById("compare-hint");
   var err = document.getElementById("compare-error");
   var pre = document.getElementById("compare-result");
+  var progLabel = document.getElementById("compare-progress-label");
+  function productizeChangeSummary(t) {
+    if (!t) return "";
+    return t.replace(/^=== CHANGE SUMMARY ===\s*/m, "📊 Что изменилось\n\n");
+  }
   function clearError() {
     if (err) { err.style.display = "none"; err.textContent = ""; }
   }
@@ -309,6 +325,7 @@
       setSelected(null);
       if (hint) hint.textContent = "Loading diff…";
       if (pre) pre.style.display = "none";
+      if (progLabel) { progLabel.style.display = "none"; progLabel.textContent = ""; }
       fetch(url)
         .then(function (r) {
           return r.json().then(function (j) {
@@ -321,15 +338,19 @@
         })
         .then(function (data) {
           if (hint) hint.textContent = "Diff: " + first + " → " + fn;
+          if (progLabel && data.progress) {
+            progLabel.style.display = "block";
+            progLabel.textContent = "📈 Прогресс: " + data.progress.score_display + " (" + (data.progress.summary_line || "") + ")";
+          }
           if (pre) {
             pre.style.display = "block";
-            var pt = (data.progress && data.progress.progress_text) ? data.progress.progress_text : "";
-            pre.textContent = (data.change_summary || "") + "\n\n" + (data.diff || "") + "\n\n" + (pt || "");
+            pre.textContent = productizeChangeSummary(data.change_summary || "") + "\n\n" + (data.diff || "");
           }
         })
         .catch(function (e) {
           if (hint) hint.textContent = "";
           if (pre) pre.style.display = "none";
+          if (progLabel) { progLabel.style.display = "none"; progLabel.textContent = ""; }
           if (err) {
             err.style.display = "block";
             err.textContent = e.message || String(e);
