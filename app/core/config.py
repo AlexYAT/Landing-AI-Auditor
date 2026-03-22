@@ -17,6 +17,7 @@ class Settings:
 
     openai_api_key: str
     openai_model: str = "gpt-4.1-mini"
+    diff_summary_model: str = "gpt-4o-mini"
     request_timeout: int = 20
     max_text_chars: int = 12000
     default_lang: str = "ru"
@@ -61,6 +62,7 @@ def get_settings() -> Settings:
     return Settings(
         openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
         openai_model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini").strip(),
+        diff_summary_model=os.getenv("DIFF_SUMMARY_MODEL", "gpt-4o-mini").strip(),
         request_timeout=_get_int_env("REQUEST_TIMEOUT", 20),
         max_text_chars=_get_int_env("MAX_TEXT_CHARS", 12000),
         default_lang=default_lang,

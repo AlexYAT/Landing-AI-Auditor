@@ -17,6 +17,7 @@ from app.providers.llm import LlmProviderError
 from app.services.analyzer import AnalyzerError
 from app.services.assignment_formatter import format_assignment_output
 from app.services.audit_pipeline import run_landing_audit
+from app.services.diff_summary import build_diff_payload_for_llm, summarize_diff_with_llm
 from app.services.exporter import export_report
 from app.services.parser import ParsingError
 from app.services.report_builder import build_human_report, format_summary_readable
@@ -69,6 +70,112 @@ def _roadmap_actions_set(report: dict[str, Any]) -> set[str]:
     return out
 
 
+def _roadmap_actions_ordered(report: dict[str, Any]) -> list[str]:
+    ar = report.get("action_roadmap")
+    if not isinstance(ar, list):
+        return []
+    out: list[str] = []
+    for item in ar:
+        if isinstance(item, dict):
+            a = str(item.get("action", "")).strip()
+            if a:
+                out.append(a)
+    return out
+
+
+def _compute_progress_score(report_old: dict[str, Any], report_new: dict[str, Any]) -> int:
+    """Simple score from diff only; clamped to [-100, 100]."""
+    s_old = _missing_blocks_set(report_old)
+    s_new = _missing_blocks_set(report_new)
+    t_old = _next_block_type(report_old)
+    t_new = _next_block_type(report_new)
+    r_old = _roadmap_actions_set(report_old)
+    r_new = _roadmap_actions_set(report_new)
+
+    score = 0
+    for _ in s_old - s_new:
+        score += 10
+    for _ in s_new - s_old:
+        score -= 5
+    if t_old != t_new:
+        score += 5
+    for _ in r_new - r_old:
+        score += 5
+    for _ in r_old - r_new:
+        score -= 3
+    return max(-100, min(100, score))
+
+
+def _format_signed_score(score: int) -> str:
+    if score > 0:
+        return f"+{score}"
+    return str(score)
+
+
+def _progress_summary_line(score: int) -> str:
+    if score > 20:
+        return "Сайт стал заметно лучше с точки зрения конверсии"
+    if score > 0:
+        return "Есть небольшие улучшения"
+    if score == 0:
+        return "Без изменений"
+    return "Изменения ухудшили структуру лендинга"
+
+
+def _print_progress_block(score: int) -> None:
+    print()
+    print("=== PROGRESS ===")
+    print()
+    print(f"Score: {_format_signed_score(score)}")
+    print()
+    print("Interpretation:")
+    print("+20 и выше → заметное улучшение")
+    print("0 → без изменений")
+    print("отрицательное → стало хуже")
+    print()
+    print(_progress_summary_line(score))
+
+
+def _change_summary_verdict(progress: int) -> str:
+    if progress > 20:
+        return "Сайт стал заметно лучше"
+    if progress >= 0:
+        return "Есть улучшения, но требуется доработка"
+    return "Изменения ухудшили структуру"
+
+
+def _print_change_summary(
+    added_mb: list[str],
+    removed_mb: list[str],
+    added_r: list[str],
+    removed_r: list[str],
+    t_old: str,
+    t_new: str,
+    progress: int,
+    llm_summary: str | None = None,
+) -> None:
+    print("=== CHANGE SUMMARY ===")
+    print()
+    if (llm_summary or "").strip():
+        print(llm_summary.strip())
+        print()
+        return
+    if added_mb:
+        print(f"Добавлены блоки: {', '.join(added_mb)}")
+    if removed_mb:
+        print(f"Удалены блоки: {', '.join(removed_mb)}")
+    if added_mb and removed_mb:
+        print("Изменены блоки: обновлён список недостающих блоков.")
+    if added_r:
+        print(f"Добавлены действия: {', '.join(added_r)}")
+    if removed_r:
+        print(f"Убраны действия: {', '.join(removed_r)}")
+    if t_old != t_new:
+        print(f"Изменён следующий шаг: было {t_old or '—'} → стало {t_new or '—'}")
+    print(_change_summary_verdict(progress))
+    print()
+
+
 def _load_audit_json(path: str) -> dict[str, Any]:
     p = Path(path)
     if not p.is_file():
@@ -91,6 +198,41 @@ def _print_audit_diff(report_old: dict[str, Any], report_new: dict[str, Any]) ->
     r_new = _roadmap_actions_set(report_new)
     added_r = sorted(r_new - r_old)
     removed_r = sorted(r_old - r_new)
+
+    progress = _compute_progress_score(report_old, report_new)
+    diff_lang = normalize_lang(report_new.get("language")) or "ru"
+    settings = get_settings()
+    diff_payload = build_diff_payload_for_llm(
+        sorted(s_old),
+        sorted(s_new),
+        _roadmap_actions_ordered(report_old),
+        _roadmap_actions_ordered(report_new),
+        added_mb,
+        removed_mb,
+        added_r,
+        removed_r,
+        t_old,
+        t_new,
+        report_old,
+        report_new,
+    )
+    llm_summary = summarize_diff_with_llm(
+        report_old,
+        report_new,
+        diff_payload,
+        diff_lang,
+        settings,
+    )
+    _print_change_summary(
+        added_mb,
+        removed_mb,
+        added_r,
+        removed_r,
+        t_old,
+        t_new,
+        progress,
+        llm_summary=llm_summary or None,
+    )
 
     print("=== DIFF ===")
     print()
@@ -118,6 +260,8 @@ def _print_audit_diff(report_old: dict[str, Any], report_new: dict[str, Any]) ->
             print(f"- {line}")
     else:
         print("(no changes)")
+
+    _print_progress_block(progress)
 
 
 def _run_diff(path1: str, path2: str) -> int:

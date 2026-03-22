@@ -132,3 +132,14 @@ class OpenAiAuditProvider:
             if isinstance(exc, LlmProviderError):
                 raise
             raise LlmProviderError(f"OpenAI request failed: {exc}") from exc
+
+
+def summarize_diff_with_llm(*args: Any, **kwargs: Any) -> str:
+    """
+    CLI ``--diff`` human-readable summary (separate cheap model; see ``DIFF_SUMMARY_MODEL``).
+
+    Implemented in ``app.services.diff_summary`` so the main audit provider path stays unchanged.
+    """
+    from app.services.diff_summary import summarize_diff_with_llm as _impl
+
+    return _impl(*args, **kwargs)
