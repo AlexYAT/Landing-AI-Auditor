@@ -174,7 +174,7 @@ class AuditRequest(BaseModel):
         description="Optional rewrite blocks (subset of hero, cta, trust); empty list means no rewrites",
     )
     debug: bool = Field(default=False, description="Save parser debug artifacts under output/debug/<host>")
-    preset: Literal["general", "services", "expert", "course", "leadgen"] = Field(
+    preset: Literal["general", "services", "expert", "course", "leadgen", "craftum"] = Field(
         default="general",
         description="Landing type preset (analysis focus); default general",
     )

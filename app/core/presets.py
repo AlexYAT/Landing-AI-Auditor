@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from app.core.lang import DEFAULT_LANG, normalize_lang
 
-ALLOWED_PRESETS: frozenset[str] = frozenset({"general", "services", "expert", "course", "leadgen"})
-PRESETS_API_ORDER: tuple[str, ...] = ("general", "services", "expert", "course", "leadgen")
+ALLOWED_PRESETS: frozenset[str] = frozenset({"general", "services", "expert", "course", "leadgen", "craftum"})
+PRESETS_API_ORDER: tuple[str, ...] = ("general", "services", "expert", "course", "leadgen", "craftum")
 assert frozenset(PRESETS_API_ORDER) == ALLOWED_PRESETS
 
 DEFAULT_PRESET: str = "general"
@@ -32,6 +32,10 @@ _PRESET_ADDONS_RU: dict[str, str] = {
         "сильный и заметный CTA, устранение лишних отвлечений на пути к форме/кнопке.\n"
         "Сохрани требования к честности доказательств и отсутствию выдуманных фактов."
     ),
+    "craftum": (
+        "Режим Craftum: отчёт предназначен для прямого внедрения в конструкторе Craftum.\n"
+        "Следуй системному блоку «CRAFTUM MODE» ниже по тексту system prompt; не смешивай с абстрактными CRO-советами."
+    ),
 }
 
 _PRESET_ADDONS_EN: dict[str, str] = {
@@ -56,6 +60,10 @@ _PRESET_ADDONS_EN: dict[str, str] = {
         "Focus the audit on aggressive lead capture: minimal friction, a short path to the target action, a strong "
         "visible CTA, and fewer distractions on the way to form/button.\n"
         "Keep honesty requirements for evidence and no fabricated facts."
+    ),
+    "craftum": (
+        "Craftum mode: the report must be directly implementable in the Craftum site builder.\n"
+        "Follow the «CRAFTUM MODE» block later in this system prompt; do not substitute abstract CRO advice."
     ),
 }
 

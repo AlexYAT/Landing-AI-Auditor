@@ -6,7 +6,7 @@ import json
 from typing import Sequence
 
 from app.core.lang import DEFAULT_LANG, normalize_lang
-from app.core.presets import DEFAULT_PRESET, build_preset_addon, preset_section_title
+from app.core.presets import DEFAULT_PRESET, build_preset_addon, normalize_preset, preset_section_title
 from app.core.rewrite_targets import ALLOWED_REWRITE_TARGETS
 
 REWRITE_BLOCK_GUIDE_RU: dict[str, str] = {
@@ -582,6 +582,70 @@ OUTPUT FORMAT (STRICT JSON)
 """.strip()
 
 
+_CRAFTUM_MODE_RU = """
+### CRAFTUM MODE (IMPORTANT)
+
+Требования:
+
+* Давать рекомендации **только** в формате, применимом в конструкторе сайтов Craftum.
+* Использовать реальные названия блоков из типичной библиотеки Craftum, например: **Hero**, **Отзывы**, **Форма**, **Преимущества** (при необходимости уточни, как блок называется в каталоге).
+* Избегать абстрактных советов.
+
+Каждая рекомендация в массиве ``recommendations`` **должна** явно содержать:
+
+* тип блока (логический id: ``testimonials``, ``lead_form``, ``hero`` и т.д.) — в ``title`` / ``action``;
+* название блока в Craftum (например «Отзывы») — в ``implementation_for_craftum`` или ``action``;
+* где вставить (``after hero``, ``before CTA`` и т.п.) — в ``implementation_for_craftum``;
+* пошаговое внедрение (**1.** **2.** **3.**) — в ``implementation_for_craftum``;
+* пример текста — в ``example_text`` (обязательно непустой).
+
+Запрещено:
+
+* «улучшить UX», «сделать лучше дизайн», «переработать структуру» без конкретного блока и шагов.
+
+Разрешено только конкретное, например:
+
+* «добавить блок отзывов после hero»
+* «добавить H1 в hero»
+
+**NEXT ACTION** при preset craftum: для ``block_analysis.next_block`` обязательны элементы **block_name** (первая строка ``implementation_for_craftum``: ``Блок в конструкторе: «…»``), **steps** (нумерованный список 1. 2. 3. в том же поле), **placement** (чётко относительно секций страницы), **content example** (поле ``example``, готовый текст для вставки).
+""".strip()
+
+_CRAFTUM_MODE_EN = """
+### CRAFTUM MODE (IMPORTANT)
+
+Requirements:
+
+* Give recommendations **only** in a form that can be executed inside the Craftum site builder.
+* Use realistic Craftum block library names, e.g. **Hero**, **Testimonials** / **Reviews**, **Form**, **Benefits** (clarify the catalog label if needed).
+* Avoid abstract advice.
+
+Each object in the ``recommendations`` array **must** clearly include:
+
+* block type (logical id: ``testimonials``, ``lead_form``, ``hero``, etc.) in ``title`` / ``action``;
+* Craftum block label (e.g. "Reviews") in ``implementation_for_craftum`` or ``action``;
+* where to insert (``after hero``, ``before CTA``, etc.) in ``implementation_for_craftum``;
+* numbered implementation steps (**1.** **2.** **3.**) in ``implementation_for_craftum``;
+* sample copy in ``example_text`` (required, non-empty).
+
+Forbidden:
+
+* "improve UX", "improve the design", "rework the structure" without naming a concrete block and steps.
+
+Allowed only concrete wording, e.g.:
+
+* "add a testimonials block after the hero"
+* "add an H1 in the hero block"
+
+**NEXT ACTION** with craftum preset: ``block_analysis.next_block`` must include **block_name** (first line of ``implementation_for_craftum``: ``In the builder, name this block: "..."``), **steps** (numbered 1. 2. 3. in the same field), **placement** (precise vs page sections), **content example** (the ``example`` field with paste-ready text).
+""".strip()
+
+
+def _craftum_mode_section(lang: str) -> str:
+    code = normalize_lang(lang)
+    return _CRAFTUM_MODE_RU if code == "ru" else _CRAFTUM_MODE_EN
+
+
 def build_task_context(sanitized_user_task: str | None, lang: str) -> str:
     """
     Build the task section for the user message: general audit or task-aware block.
@@ -619,6 +683,8 @@ def build_system_prompt(
     preset_addon = build_preset_addon(preset, lang)
     if preset_addon:
         parts.extend(["", preset_section_title(lang), preset_addon])
+    if normalize_preset(preset) == "craftum":
+        parts.extend(["", _craftum_mode_section(lang)])
     if rewrite_targets:
         normalized = _rewrite_targets_normalized(rewrite_targets)
         normalized = tuple(t for t in normalized if t in ALLOWED_REWRITE_TARGETS)

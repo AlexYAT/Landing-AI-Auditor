@@ -45,6 +45,10 @@ class TestBuildPresetAddon(unittest.TestCase):
         text = build_preset_addon("course", "en")
         self.assertIn("course", text.lower())
 
+    def test_craftum_addon_non_empty(self) -> None:
+        self.assertIn("Craftum", build_preset_addon("craftum", "ru"))
+        self.assertIn("Craftum", build_preset_addon("craftum", "en"))
+
 
 class TestBuildSystemPromptPreset(unittest.TestCase):
     def test_general_omits_preset_section(self) -> None:
@@ -60,6 +64,14 @@ class TestBuildSystemPromptPreset(unittest.TestCase):
         text = build_system_prompt("ru", preset="expert")
         self.assertIn(preset_section_title("ru"), text)
         self.assertIn("эксперт", text.lower())
+
+    def test_craftum_includes_craftum_mode_block(self) -> None:
+        text_ru = build_system_prompt("ru", preset="craftum")
+        self.assertIn("CRAFTUM MODE", text_ru)
+        self.assertIn("Отзывы", text_ru)
+        text_en = build_system_prompt("en", preset="craftum")
+        self.assertIn("CRAFTUM MODE", text_en)
+        self.assertIn("Testimonials", text_en)
 
 
 class TestCliPreset(unittest.TestCase):
