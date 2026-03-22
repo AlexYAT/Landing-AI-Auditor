@@ -27,7 +27,14 @@
     ul.audit-history li { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.5rem 1rem; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
     ul.audit-history li:last-child { border-bottom: none; }
     .audit-meta { font-size: 0.9rem; }
+    .audit-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.75rem; }
     .audit-actions a { font-size: 0.85rem; color: #2563eb; }
+    button.compare-btn { margin-top: 0; padding: 0.3rem 0.6rem; font-size: 0.82rem; background: #0f766e; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+    button.compare-btn:hover { background: #115e59; }
+    button.compare-btn.is-selected { outline: 2px solid #f59e0b; }
+    #compare-hint { font-size: 0.8rem; color: #64748b; margin: 0.35rem 0 0; min-height: 1.2em; }
+    #compare-result { display: none; margin-top: 0.75rem; padding: 1rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.85rem; white-space: pre-wrap; }
+    #compare-error { display: none; margin-top: 0.5rem; color: #991b1b; font-size: 0.85rem; }
   </style>
 </head>
 <body>
@@ -44,6 +51,7 @@
       <span class="audit-actions">
         <a href="{{ row.open_url }}">Open</a>
         · <a href="{{ row.open_url_json }}">JSON</a>
+        · <button type="button" class="compare-btn" data-filename="{{ row.filename }}">Compare</button>
       </span>
     </li>
     {% endfor %}
@@ -51,6 +59,9 @@
   {% else %}
   <p class="muted">No saved audits yet.</p>
   {% endif %}
+  <p id="compare-hint"></p>
+  <div id="compare-error"></div>
+  <pre id="compare-result"></pre>
 
   <form method="post" action="/ui/audit">
     <label for="url">URL</label>
@@ -258,6 +269,76 @@
     </script>
   </div>
   {% endif %}
+
+  <script>
+(function () {
+  var selected = null;
+  var hint = document.getElementById("compare-hint");
+  var err = document.getElementById("compare-error");
+  var pre = document.getElementById("compare-result");
+  function clearError() {
+    if (err) { err.style.display = "none"; err.textContent = ""; }
+  }
+  function setSelected(fn) {
+    selected = fn;
+    document.querySelectorAll("button.compare-btn").forEach(function (b) {
+      b.classList.toggle("is-selected", fn && b.getAttribute("data-filename") === fn);
+    });
+    if (hint) {
+      hint.textContent = fn
+        ? "First audit selected: " + fn + " — click Compare on another row to run diff."
+        : "";
+    }
+  }
+  document.querySelectorAll("button.compare-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var fn = btn.getAttribute("data-filename");
+      if (!fn) return;
+      clearError();
+      if (!selected) {
+        setSelected(fn);
+        return;
+      }
+      if (selected === fn) {
+        setSelected(null);
+        if (hint) hint.textContent = "Selection cleared. Pick two different audits.";
+        return;
+      }
+      var url = "/audits/diff?file1=" + encodeURIComponent(selected) + "&file2=" + encodeURIComponent(fn);
+      var first = selected;
+      setSelected(null);
+      if (hint) hint.textContent = "Loading diff…";
+      if (pre) pre.style.display = "none";
+      fetch(url)
+        .then(function (r) {
+          return r.json().then(function (j) {
+            if (!r.ok) {
+              var msg = (j && j.message) ? j.message : (typeof j.detail === "string" ? j.detail : r.statusText);
+              throw new Error(msg || "Request failed");
+            }
+            return j;
+          });
+        })
+        .then(function (data) {
+          if (hint) hint.textContent = "Diff: " + first + " → " + fn;
+          if (pre) {
+            pre.style.display = "block";
+            var pt = (data.progress && data.progress.progress_text) ? data.progress.progress_text : "";
+            pre.textContent = (data.change_summary || "") + "\n\n" + (data.diff || "") + "\n\n" + (pt || "");
+          }
+        })
+        .catch(function (e) {
+          if (hint) hint.textContent = "";
+          if (pre) pre.style.display = "none";
+          if (err) {
+            err.style.display = "block";
+            err.textContent = e.message || String(e);
+          }
+        });
+    });
+  });
+})();
+  </script>
 
   <p class="muted"><a href="/docs">OpenAPI docs</a> · <a href="/health">health</a></p>
 </body>

@@ -131,6 +131,44 @@ class TestAuditsHistory(unittest.TestCase):
                 response = self.client.get("/ui/audit/file", params={"filename": "../etc/passwd"})
                 self.assertEqual(response.status_code, 404)
 
+    @patch("app.services.diff_service.summarize_diff_with_llm", return_value="")
+    def test_get_audits_diff_matches_cli_shape(self, _mock_llm: MagicMock) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            t = Path(tmp)
+            rep_a = {
+                "language": "ru",
+                "block_analysis": {"missing_blocks": ["faq"], "next_block": {"type": "hero"}},
+                "action_roadmap": [{"action": "A", "step": 1}],
+            }
+            rep_b = {
+                "language": "ru",
+                "block_analysis": {"missing_blocks": ["faq", "x"], "next_block": {"type": "cta"}},
+                "action_roadmap": [{"action": "B", "step": 1}],
+            }
+            (t / "a_ru_2026-01-01_10-00.json").write_text(
+                json.dumps(rep_a, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            (t / "b_ru_2026-01-02_10-00.json").write_text(
+                json.dumps(rep_b, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            with patch("app.core.paths.get_audits_dir", return_value=t):
+                response = self.client.get(
+                    "/audits/diff",
+                    params={
+                        "file1": "a_ru_2026-01-01_10-00.json",
+                        "file2": "b_ru_2026-01-02_10-00.json",
+                    },
+                )
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIn("=== CHANGE SUMMARY ===", data["change_summary"])
+            self.assertIn("=== DIFF ===", data["diff"])
+            self.assertIn("progress_text", data["progress"])
+            # -5 (new missing) +5 (next action) -3 (roadmap removed) +5 (roadmap added) = 2
+            self.assertEqual(data["progress"]["score"], 2)
+
 
 class TestHealthEndpoint(unittest.TestCase):
     def setUp(self) -> None:

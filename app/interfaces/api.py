@@ -358,6 +358,49 @@ def list_saved_audits() -> list[dict[str, str]]:
     ]
 
 
+@app.get("/audits/diff", tags=["history"])
+def get_audits_diff(file1: str, file2: str) -> dict[str, Any]:
+    """
+    Compare two saved audits (same logic as ``python main.py --diff file1 file2``).
+
+    ``file1`` = older snapshot, ``file2`` = newer (order matches CLI).
+    """
+    from app.services.diff_service import compute_audit_diff_output, load_audit_json_file
+
+    p1 = _safe_audit_file_path(file1)
+    p2 = _safe_audit_file_path(file2)
+    if p1 is None or p2 is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_error_payload(
+                "audit_not_found",
+                "One or both audit files are missing or invalid.",
+            ),
+        )
+    try:
+        old_rep = load_audit_json_file(p1)
+        new_rep = load_audit_json_file(p2)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_error_payload("invalid_json", f"Could not parse audit JSON: {exc}"),
+        ) from exc
+    except OSError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_error_payload("read_failed", str(exc)),
+        ) from exc
+
+    out = compute_audit_diff_output(old_rep, new_rep)
+    progress_payload: dict[str, Any] = dict(out["progress"])
+    progress_payload["progress_text"] = out["progress_text"].rstrip()
+    return {
+        "change_summary": out["change_summary"].rstrip(),
+        "diff": out["diff"].rstrip(),
+        "progress": progress_payload,
+    }
+
+
 @app.get("/", include_in_schema=False)
 def ui_index(request: Request) -> Any:
     """Minimal HTML demo: form only."""

@@ -16,7 +16,7 @@ class TestDiffCli(unittest.TestCase):
         self.assertEqual(args.diff, ["audits/a.json", "audits/b.json"])
         self.assertIsNone(args.url)
 
-    @patch("main.summarize_diff_with_llm", return_value="")
+    @patch("app.services.diff_service.summarize_diff_with_llm", return_value="")
     def test_diff_output_structure(self, _mock_llm: object) -> None:
         from main import _print_audit_diff
 
@@ -55,7 +55,7 @@ class TestDiffCli(unittest.TestCase):
         self.assertIn("Есть небольшие улучшения", out)
 
     def test_progress_score_clamped(self) -> None:
-        from main import _compute_progress_score
+        from app.services.diff_service import compute_progress_score as _compute_progress_score
 
         old = {"block_analysis": {"missing_blocks": [], "next_block": {}}, "action_roadmap": []}
         new = {
@@ -67,7 +67,7 @@ class TestDiffCli(unittest.TestCase):
         }
         self.assertEqual(_compute_progress_score(old, new), -100)
 
-    @patch("main.summarize_diff_with_llm", return_value="Краткое смысловое резюме.")
+    @patch("app.services.diff_service.summarize_diff_with_llm", return_value="Краткое смысловое резюме.")
     def test_change_summary_uses_llm_when_available(self, _mock_llm: object) -> None:
         from main import _print_audit_diff
 
