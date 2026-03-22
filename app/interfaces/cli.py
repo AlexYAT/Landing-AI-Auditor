@@ -11,7 +11,14 @@ from app.core.rewrite_targets import parse_rewrite_targets_arg
 def build_parser() -> argparse.ArgumentParser:
     """Build and return CLI argument parser."""
     parser = argparse.ArgumentParser(description="Landing page audit CLI (MVP v1)")
-    parser.add_argument("--url", required=True, help="Landing page URL to audit")
+    url_or_diff = parser.add_mutually_exclusive_group(required=True)
+    url_or_diff.add_argument("--url", default=None, help="Landing page URL to audit")
+    url_or_diff.add_argument(
+        "--diff",
+        nargs=2,
+        metavar=("FILE1", "FILE2"),
+        help="Compare two saved audit JSON files (no live audit)",
+    )
     parser.add_argument(
         "--task",
         type=str,

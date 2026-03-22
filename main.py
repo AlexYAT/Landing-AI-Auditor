@@ -36,6 +36,118 @@ def _audit_domain_slug(url: str) -> str:
     return safe.strip("_") or "unknown"
 
 
+def _missing_blocks_set(report: dict[str, Any]) -> set[str]:
+    ba = report.get("block_analysis")
+    if not isinstance(ba, dict):
+        return set()
+    mb = ba.get("missing_blocks")
+    if not isinstance(mb, list):
+        return set()
+    return {str(x).strip() for x in mb if str(x).strip()}
+
+
+def _next_block_type(report: dict[str, Any]) -> str:
+    ba = report.get("block_analysis")
+    if not isinstance(ba, dict):
+        return ""
+    nb = ba.get("next_block")
+    if not isinstance(nb, dict):
+        return ""
+    return str(nb.get("type", "")).strip()
+
+
+def _roadmap_actions_set(report: dict[str, Any]) -> set[str]:
+    ar = report.get("action_roadmap")
+    if not isinstance(ar, list):
+        return set()
+    out: set[str] = set()
+    for item in ar:
+        if isinstance(item, dict):
+            a = str(item.get("action", "")).strip()
+            if a:
+                out.add(a)
+    return out
+
+
+def _load_audit_json(path: str) -> dict[str, Any]:
+    p = Path(path)
+    if not p.is_file():
+        raise FileNotFoundError(path)
+    with p.open(encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _print_audit_diff(report_old: dict[str, Any], report_new: dict[str, Any]) -> None:
+    """Print readable diff between two audit JSON payloads."""
+    s_old = _missing_blocks_set(report_old)
+    s_new = _missing_blocks_set(report_new)
+    added_mb = sorted(s_new - s_old)
+    removed_mb = sorted(s_old - s_new)
+
+    t_old = _next_block_type(report_old)
+    t_new = _next_block_type(report_new)
+
+    r_old = _roadmap_actions_set(report_old)
+    r_new = _roadmap_actions_set(report_new)
+    added_r = sorted(r_new - r_old)
+    removed_r = sorted(r_old - r_new)
+
+    print("=== DIFF ===")
+    print()
+    print("BLOCKS:")
+    if added_mb or removed_mb:
+        for line in added_mb:
+            print(f"* {line}")
+        for line in removed_mb:
+            print(f"- {line}")
+    else:
+        print("(no changes)")
+    print()
+    print("NEXT ACTION:")
+    if t_old != t_new:
+        print(f"было: {t_old or '—'}")
+        print(f"стало: {t_new or '—'}")
+    else:
+        print("(без изменений)")
+    print()
+    print("ROADMAP CHANGES:")
+    if added_r or removed_r:
+        for line in added_r:
+            print(f"* {line}")
+        for line in removed_r:
+            print(f"- {line}")
+    else:
+        print("(no changes)")
+
+
+def _run_diff(path1: str, path2: str) -> int:
+    """Load two audit JSON files and print diff; no pipeline."""
+    try:
+        old_rep = _load_audit_json(path1)
+    except FileNotFoundError:
+        print(f"Error: file not found: {path1}", file=sys.stderr)
+        return 1
+    except json.JSONDecodeError as exc:
+        print(f"Error: invalid JSON in {path1}: {exc}", file=sys.stderr)
+        return 1
+    except OSError as exc:
+        print(f"Error: cannot read {path1}: {exc}", file=sys.stderr)
+        return 1
+    try:
+        new_rep = _load_audit_json(path2)
+    except FileNotFoundError:
+        print(f"Error: file not found: {path2}", file=sys.stderr)
+        return 1
+    except json.JSONDecodeError as exc:
+        print(f"Error: invalid JSON in {path2}: {exc}", file=sys.stderr)
+        return 1
+    except OSError as exc:
+        print(f"Error: cannot read {path2}: {exc}", file=sys.stderr)
+        return 1
+    _print_audit_diff(old_rep, new_rep)
+    return 0
+
+
 def _write_audit_history(url: str, report: dict[str, Any]) -> str:
     """
     Persist full report JSON under ``audits/`` for CLI history.
@@ -293,6 +405,9 @@ def run() -> int:
     def _log(step: str) -> None:
         if verbose:
             print(f"[verbose] {step}")
+
+    if getattr(args, "diff", None):
+        return _run_diff(args.diff[0], args.diff[1])
 
     try:
         if mode == "assignment":
