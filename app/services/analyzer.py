@@ -30,6 +30,7 @@ ALLOWED_SEVERITIES = {"high", "medium", "low"}
 ALLOWED_PRIORITIES = {"high", "medium", "low"}
 ALLOWED_CATEGORIES = {"clarity", "cta", "trust", "friction", "structure", "forms", "offer", "other"}
 ALLOWED_REWRITE_BLOCKS = ALLOWED_REWRITE_TARGETS
+ALLOWED_NEXT_BLOCK_PRIORITY = frozenset({"high", "medium"})
 
 
 def _as_list(data: Any) -> list[Any]:
@@ -107,6 +108,12 @@ def _as_block_text(data: Any) -> str:
     return str(data).strip()
 
 
+def _normalize_next_block_priority(value: Any) -> str:
+    """next_block.priority: high | medium only; empty if missing or invalid."""
+    v = _as_str(value).lower()
+    return v if v in ALLOWED_NEXT_BLOCK_PRIORITY else ""
+
+
 def _normalize_block_analysis(data: dict[str, Any]) -> dict[str, Any]:
     """Parse ``block_analysis`` from model JSON; safe when missing or partial."""
     raw = data.get("block_analysis")
@@ -116,10 +123,12 @@ def _normalize_block_analysis(data: dict[str, Any]) -> dict[str, Any]:
             "missing_blocks": [],
             "next_block": {
                 "type": "",
+                "priority": "",
                 "reason": "",
                 "placement": "",
                 "implementation_for_craftum": "",
                 "example": "",
+                "expected_impact": "",
                 "style_fit": {
                     "color_guidance": "",
                     "font_guidance": "",
@@ -137,10 +146,12 @@ def _normalize_block_analysis(data: dict[str, Any]) -> dict[str, Any]:
         sf_raw = {}
     next_block = {
         "type": _as_block_text(nb_raw.get("type")),
+        "priority": _normalize_next_block_priority(nb_raw.get("priority")),
         "reason": _as_block_text(nb_raw.get("reason")),
         "placement": _as_block_text(nb_raw.get("placement")),
         "implementation_for_craftum": _as_block_text(nb_raw.get("implementation_for_craftum")),
         "example": _as_block_text(nb_raw.get("example")),
+        "expected_impact": _as_block_text(nb_raw.get("expected_impact")),
         "style_fit": {
             "color_guidance": _as_block_text(sf_raw.get("color_guidance")),
             "font_guidance": _as_block_text(sf_raw.get("font_guidance")),

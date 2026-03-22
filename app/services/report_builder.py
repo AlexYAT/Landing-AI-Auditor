@@ -22,9 +22,12 @@ def _empty_block_analysis_readable() -> dict[str, Any]:
         "missing_blocks": [],
         "next_action": {
             "type": "",
+            "priority": "",
             "reason": "",
             "placement": "",
             "example": "",
+            "implementation_for_craftum": "",
+            "expected_impact": "",
         },
     }
 
@@ -46,25 +49,37 @@ def _build_block_analysis_readable(report: dict) -> dict[str, Any]:
         nb = {}
     next_action = {
         "type": _txt(nb.get("type")),
+        "priority": _txt(nb.get("priority")),
         "reason": _txt(nb.get("reason")),
         "placement": _txt(nb.get("placement")),
         "example": _txt(nb.get("example")),
+        "implementation_for_craftum": _txt(nb.get("implementation_for_craftum")),
+        "expected_impact": _txt(nb.get("expected_impact")),
     }
     return {"missing_blocks": missing_list, "next_action": next_action}
 
 
 def _next_action_text_block(next_action: dict[str, str]) -> str:
     """Multiline block for CLI/markdown (same spirit as recommendations)."""
-    if not any(next_action.values()):
+    sections: list[str] = []
+    if next_action.get("type"):
+        sections.append(f"Тип блока:\n{next_action['type']}")
+    if next_action.get("priority"):
+        sections.append(f"Приоритет:\n{next_action['priority']}")
+    if next_action.get("reason"):
+        sections.append(f"Причина:\n{next_action['reason']}")
+    if next_action.get("placement"):
+        sections.append(f"Где вставить:\n{next_action['placement']}")
+    if next_action.get("example"):
+        sections.append(f"Пример текста:\n{next_action['example']}")
+    if next_action.get("implementation_for_craftum"):
+        sections.append(f"Как внедрить:\n{next_action['implementation_for_craftum']}")
+    if next_action.get("expected_impact"):
+        sections.append(f"Ожидаемый эффект:\n{next_action['expected_impact']}")
+    if not sections:
         return ""
-    return (
-        "---\n"
-        f"Тип блока:\n{next_action['type']}\n\n"
-        f"Причина:\n{next_action['reason']}\n\n"
-        f"Где вставить:\n{next_action['placement']}\n\n"
-        f"Пример текста:\n{next_action['example']}\n"
-        "---"
-    )
+    body = "\n\n".join(sections)
+    return f"---\n{body}\n---"
 
 
 def _normalize_rewrite_texts_readable(report: dict) -> dict[str, str]:

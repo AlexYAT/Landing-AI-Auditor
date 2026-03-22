@@ -49,7 +49,15 @@ class TestBuildHumanReport(unittest.TestCase):
         self.assertEqual(bar["missing_blocks"], [])
         self.assertEqual(
             bar["next_action"],
-            {"type": "", "reason": "", "placement": "", "example": ""},
+            {
+                "type": "",
+                "priority": "",
+                "reason": "",
+                "placement": "",
+                "example": "",
+                "implementation_for_craftum": "",
+                "expected_impact": "",
+            },
         )
 
     def test_rewrite_texts_readable_from_report(self) -> None:

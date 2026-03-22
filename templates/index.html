@@ -132,7 +132,7 @@
     {% if bar %}
     {% set mb = bar.missing_blocks | default([]) %}
     {% set na = bar.next_action | default({}) %}
-    {% if mb or na.type or na.reason or na.placement or na.example %}
+    {% if mb or na.type or na.priority or na.reason or na.placement or na.example or na.implementation_for_craftum or na.expected_impact %}
     {% if mb %}
     <h2>Missing blocks</h2>
     <ul class="issues">
@@ -141,10 +141,13 @@
       {% endfor %}
     </ul>
     {% endif %}
-    {% if na.type or na.reason or na.placement or na.example %}
+    {% if na.type or na.priority or na.reason or na.placement or na.example or na.implementation_for_craftum or na.expected_impact %}
     <h2>Next action</h2>
     {% if na.type %}
     <p><strong>Type:</strong> {{ na.type }}</p>
+    {% endif %}
+    {% if na.priority %}
+    <p><strong>Priority:</strong> {{ na.priority }}</p>
     {% endif %}
     {% if na.reason %}
     <p><strong>Reason:</strong></p>
@@ -160,6 +163,14 @@
       <button type="button" class="copy-btn" data-copy-target="block-next-example">Copy</button>
     </div>
     <pre id="block-next-example" class="block">{{ na.example }}</pre>
+    {% endif %}
+    {% if na.implementation_for_craftum %}
+    <p><strong>Implementation:</strong></p>
+    <p>{{ na.implementation_for_craftum }}</p>
+    {% endif %}
+    {% if na.expected_impact %}
+    <p><strong>Expected impact:</strong></p>
+    <p>{{ na.expected_impact }}</p>
     {% endif %}
     {% endif %}
     {% endif %}

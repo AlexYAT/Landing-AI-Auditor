@@ -143,7 +143,7 @@ Prefer the rewrites array order: {order}.
 LANG_RULES: dict[str, str] = {
     "ru": (
         "Отвечай строго на русском языке. Весь пользовательский текст в summary, issues, "
-        "recommendations, quick_wins, block_analysis (включая blocks_detected, missing_blocks, next_block и style_fit), "
+        "recommendations, quick_wins, block_analysis (включая blocks_detected, missing_blocks, next_block: priority, expected_impact, style_fit), "
         "в rewrite_texts (hero, cta, trust) и в rewrites (поля before, after, why) "
         "должен быть строго на русском. "
         "Не используй английский в этих полях. Если ты используешь другой язык в текстовых полях ответа, это ошибка. "
@@ -153,7 +153,7 @@ LANG_RULES: dict[str, str] = {
     ),
     "en": (
         "Respond strictly in English. All user-facing text in summary, issues, recommendations, "
-        "quick_wins, block_analysis (including blocks_detected, missing_blocks, next_block, and style_fit), "
+        "quick_wins, block_analysis (including blocks_detected, missing_blocks, next_block: priority, expected_impact, style_fit), "
         "in rewrite_texts (hero, cta, trust), and in rewrites (fields before, after, why) "
         "must be strictly in English. "
         "Do not use Russian or other languages in those fields. If you use another language in textual fields "
@@ -347,6 +347,7 @@ Rules:
 For next_block:
 
 - type: clear block type (e.g. testimonials, faq, lead_form)
+- priority: "high" or "medium" (prefer "high" for this single recommended next block)
 - reason: why this block is critical now
 - placement: where exactly to insert it (after which section)
 - implementation_for_craftum:
@@ -354,11 +355,14 @@ For next_block:
   - how to find/add this block in Craftum
   - what to configure
 - example: provide ready-to-use text/content for the block
+- expected_impact: short practical conversion-oriented effect (e.g. higher trust, more qualified leads); no vague fluff
 - style_fit:
 
   - DO NOT invent exact colors or fonts
   - recommend keeping current style
   - describe how to match existing design
+
+next_block.priority should usually be "high". expected_impact must be practical and conversion-oriented (example of good wording: "Повышение доверия и рост количества заявок от более тёплого трафика").
 
 Avoid generic advice. Be specific and actionable.
 
@@ -502,10 +506,12 @@ OUTPUT FORMAT (STRICT JSON)
     "missing_blocks": ["string"],
     "next_block": {
       "type": "string",
+      "priority": "high|medium",
       "reason": "string",
       "placement": "string",
       "implementation_for_craftum": "string",
       "example": "string",
+      "expected_impact": "string",
       "style_fit": {
         "color_guidance": "string",
         "font_guidance": "string",

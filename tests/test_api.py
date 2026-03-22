@@ -34,10 +34,12 @@ _MINIMAL_REPORT = {
         "missing_blocks": [],
         "next_block": {
             "type": "",
+            "priority": "",
             "reason": "",
             "placement": "",
             "implementation_for_craftum": "",
             "example": "",
+            "expected_impact": "",
             "style_fit": {"color_guidance": "", "font_guidance": "", "visual_guidance": ""},
         },
     },
