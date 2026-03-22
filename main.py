@@ -59,7 +59,14 @@ def _block_analysis_visible(rr: dict[str, Any]) -> bool:
     na = bar.get("next_action")
     if not isinstance(na, dict):
         return False
-    return any(str(v).strip() for v in na.values())
+    for k, v in na.items():
+        if k == "confidence":
+            if isinstance(v, (int, float)) and float(v) > 0:
+                return True
+            continue
+        if v is not None and str(v).strip():
+            return True
+    return False
 
 
 def _rewrite_texts_readable_nonempty(rr: dict[str, Any]) -> bool:
@@ -122,6 +129,9 @@ def _build_readable_markdown(report: dict[str, Any]) -> str:
         nar = rr.get("next_action_readable") or ""
         if nar.strip():
             parts.extend(["", "# Next action", "", nar])
+    arr = (rr.get("action_roadmap_readable") or "").strip()
+    if arr:
+        parts.extend(["", "# Action roadmap", "", arr])
     if _rewrite_texts_readable_nonempty(rr):
         rt = rr.get("rewrite_texts_readable")
         if not isinstance(rt, dict):
@@ -189,6 +199,11 @@ def _print_readable_console(report: dict[str, Any]) -> None:
             print()
             print("=== NEXT ACTION ===")
             print(nar)
+    arr = (rr.get("action_roadmap_readable") or "").strip()
+    if arr:
+        print()
+        print("=== ACTION ROADMAP ===")
+        print(arr)
     if _rewrite_texts_readable_nonempty(rr):
         rt = rr.get("rewrite_texts_readable")
         if not isinstance(rt, dict):

@@ -17,6 +17,18 @@ def _txt(v: Any) -> str:
     return str(v).strip()
 
 
+def _safe_confidence(v: Any) -> float:
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return 0.0
+    if f < 0.0:
+        return 0.0
+    if f > 1.0:
+        return 1.0
+    return f
+
+
 def _empty_block_analysis_readable() -> dict[str, Any]:
     return {
         "missing_blocks": [],
@@ -28,6 +40,8 @@ def _empty_block_analysis_readable() -> dict[str, Any]:
             "example": "",
             "implementation_for_craftum": "",
             "expected_impact": "",
+            "confidence": 0.0,
+            "why_now": "",
         },
     }
 
@@ -51,15 +65,17 @@ def _build_block_analysis_readable(report: dict) -> dict[str, Any]:
         "type": _txt(nb.get("type")),
         "priority": _txt(nb.get("priority")),
         "reason": _txt(nb.get("reason")),
+        "why_now": _txt(nb.get("why_now")),
         "placement": _txt(nb.get("placement")),
         "example": _txt(nb.get("example")),
         "implementation_for_craftum": _txt(nb.get("implementation_for_craftum")),
         "expected_impact": _txt(nb.get("expected_impact")),
+        "confidence": _safe_confidence(nb.get("confidence")),
     }
     return {"missing_blocks": missing_list, "next_action": next_action}
 
 
-def _next_action_text_block(next_action: dict[str, str]) -> str:
+def _next_action_text_block(next_action: dict[str, Any]) -> str:
     """Multiline block for CLI/markdown (same spirit as recommendations)."""
     sections: list[str] = []
     if next_action.get("type"):
@@ -68,6 +84,8 @@ def _next_action_text_block(next_action: dict[str, str]) -> str:
         sections.append(f"Приоритет:\n{next_action['priority']}")
     if next_action.get("reason"):
         sections.append(f"Причина:\n{next_action['reason']}")
+    if next_action.get("why_now"):
+        sections.append(f"Почему сейчас:\n{next_action['why_now']}")
     if next_action.get("placement"):
         sections.append(f"Где вставить:\n{next_action['placement']}")
     if next_action.get("example"):
@@ -76,10 +94,65 @@ def _next_action_text_block(next_action: dict[str, str]) -> str:
         sections.append(f"Как внедрить:\n{next_action['implementation_for_craftum']}")
     if next_action.get("expected_impact"):
         sections.append(f"Ожидаемый эффект:\n{next_action['expected_impact']}")
+    conf = next_action.get("confidence")
+    if isinstance(conf, (int, float)) and float(conf) > 0:
+        sections.append(f"Уверенность:\n{float(conf)}")
     if not sections:
         return ""
     body = "\n\n".join(sections)
     return f"---\n{body}\n---"
+
+
+def _build_action_roadmap_steps(report: dict) -> list[dict[str, Any]]:
+    """Up to 3 roadmap steps from ``action_roadmap`` for UI/CLI."""
+    ar = report.get("action_roadmap")
+    if not isinstance(ar, list) or not ar:
+        return []
+    steps: list[dict[str, Any]] = []
+    for item in ar[:3]:
+        if not isinstance(item, dict):
+            continue
+        step_raw = item.get("step")
+        try:
+            step_n = int(step_raw) if step_raw is not None else len(steps) + 1
+        except (TypeError, ValueError):
+            step_n = len(steps) + 1
+        action = _txt(item.get("action"))
+        reason = _txt(item.get("reason"))
+        exp = _txt(item.get("expected_impact"))
+        if not action and not reason and not exp:
+            continue
+        pr = _txt(item.get("priority")).lower() or "medium"
+        steps.append(
+            {
+                "step": step_n,
+                "action": action,
+                "reason": reason,
+                "expected_impact": exp,
+                "priority": pr,
+            }
+        )
+    return steps
+
+
+def _format_action_roadmap_readable(steps: list[dict[str, Any]]) -> str:
+    """Plain text for CLI / save-report (=== ACTION ROADMAP ===)."""
+    if not steps:
+        return ""
+    lines: list[str] = []
+    for s in steps:
+        pr = str(s.get("priority", "")).strip().upper() or "?"
+        act = str(s.get("action", "")).strip()
+        step_n = s.get("step", "")
+        lines.append(f"{step_n}. [{pr}] {act}".rstrip())
+        rs = str(s.get("reason", "")).strip()
+        if rs:
+            lines.append(f"   Причина: {rs}")
+        ei = str(s.get("expected_impact", "")).strip()
+        if ei:
+            lines.append(f"   Эффект: {ei}")
+        lines.append("")
+    return "\n".join(lines).rstrip()
 
 
 def _normalize_rewrite_texts_readable(report: dict) -> dict[str, str]:
@@ -207,6 +280,8 @@ def build_human_report(report: dict) -> dict:
 
     bar = _build_block_analysis_readable(report)
     next_action_readable = _next_action_text_block(bar["next_action"])
+    ar_steps = _build_action_roadmap_steps(report)
+    action_roadmap_readable = _format_action_roadmap_readable(ar_steps)
 
     return {
         "summary": raw_summary,
@@ -216,4 +291,6 @@ def build_human_report(report: dict) -> dict:
         "rewrite_texts_readable": _normalize_rewrite_texts_readable(report),
         "block_analysis_readable": bar,
         "next_action_readable": next_action_readable,
+        "action_roadmap_steps": ar_steps,
+        "action_roadmap_readable": action_roadmap_readable,
     }

@@ -143,7 +143,7 @@ Prefer the rewrites array order: {order}.
 LANG_RULES: dict[str, str] = {
     "ru": (
         "Отвечай строго на русском языке. Весь пользовательский текст в summary, issues, "
-        "recommendations, quick_wins, block_analysis (включая blocks_detected, missing_blocks, next_block: priority, expected_impact, style_fit), "
+        "recommendations, quick_wins, block_analysis (включая blocks_detected, missing_blocks, next_block: priority, expected_impact, confidence, why_now, style_fit), action_roadmap, "
         "в rewrite_texts (hero, cta, trust) и в rewrites (поля before, after, why) "
         "должен быть строго на русском. "
         "Не используй английский в этих полях. Если ты используешь другой язык в текстовых полях ответа, это ошибка. "
@@ -153,7 +153,7 @@ LANG_RULES: dict[str, str] = {
     ),
     "en": (
         "Respond strictly in English. All user-facing text in summary, issues, recommendations, "
-        "quick_wins, block_analysis (including blocks_detected, missing_blocks, next_block: priority, expected_impact, style_fit), "
+        "quick_wins, block_analysis (including blocks_detected, missing_blocks, next_block: priority, expected_impact, confidence, why_now, style_fit), action_roadmap, "
         "in rewrite_texts (hero, cta, trust), and in rewrites (fields before, after, why) "
         "must be strictly in English. "
         "Do not use Russian or other languages in those fields. If you use another language in textual fields "
@@ -356,6 +356,8 @@ For next_block:
   - what to configure
 - example: provide ready-to-use text/content for the block
 - expected_impact: short practical conversion-oriented effect (e.g. higher trust, more qualified leads); no vague fluff
+- confidence: number from 0 to 1 (e.g. 0.8) expressing how confident you are this is the right next block
+- why_now: brief explanation why this block should be added first (sequence of improvements, urgency); do NOT repeat reason verbatim; focus on order/priority of fixes
 - style_fit:
 
   - DO NOT invent exact colors or fonts
@@ -363,6 +365,8 @@ For next_block:
   - describe how to match existing design
 
 next_block.priority should usually be "high". expected_impact must be practical and conversion-oriented (example of good wording: "Повышение доверия и рост количества заявок от более тёплого трафика").
+
+confidence must be between 0 and 1. why_now must explain why this is the most urgent improvement; avoid repeating reason in why_now; why_now should focus on sequence of improvements.
 
 Avoid generic advice. Be specific and actionable.
 
@@ -453,6 +457,21 @@ IMPACT FOCUS:
 
 ---
 
+### ACTION ROADMAP
+
+Create a short roadmap of the next 3 most important actions (ground in ``block_analysis`` and ``recommendations``).
+
+Rules:
+
+* Step 1 should align with ``block_analysis.next_block`` (same intent / next best block to add).
+* Steps should be ordered by impact (highest first).
+* Keep actions concrete (e.g. add testimonials block, add lead form, improve offer copy).
+* Avoid duplication across steps.
+* Focus on conversion improvements.
+* Each step must include: action (what to do), reason (why), expected_impact (practical outcome).
+
+---
+
 Return STRICT JSON only.
 - No markdown.
 - No code fences.
@@ -512,13 +531,24 @@ OUTPUT FORMAT (STRICT JSON)
       "implementation_for_craftum": "string",
       "example": "string",
       "expected_impact": "string",
+      "confidence": 0.8,
+      "why_now": "string",
       "style_fit": {
         "color_guidance": "string",
         "font_guidance": "string",
         "visual_guidance": "string"
       }
     }
-  }
+  },
+  "action_roadmap": [
+    {
+      "step": 1,
+      "action": "string",
+      "reason": "string",
+      "expected_impact": "string",
+      "priority": "high|medium|low"
+    }
+  ]
 }
 """.strip()
 

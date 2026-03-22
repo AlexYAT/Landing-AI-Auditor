@@ -31,6 +31,7 @@ ALLOWED_PRIORITIES = {"high", "medium", "low"}
 ALLOWED_CATEGORIES = {"clarity", "cta", "trust", "friction", "structure", "forms", "offer", "other"}
 ALLOWED_REWRITE_BLOCKS = ALLOWED_REWRITE_TARGETS
 ALLOWED_NEXT_BLOCK_PRIORITY = frozenset({"high", "medium"})
+ALLOWED_EFFORT = frozenset({"low", "medium", "high"})
 
 
 def _as_list(data: Any) -> list[Any]:
@@ -114,6 +115,25 @@ def _normalize_next_block_priority(value: Any) -> str:
     return v if v in ALLOWED_NEXT_BLOCK_PRIORITY else ""
 
 
+def _normalize_effort(value: Any) -> str:
+    """effort for next_block / roadmap: low | medium | high; default medium."""
+    v = _as_str(value).lower()
+    return v if v in ALLOWED_EFFORT else "medium"
+
+
+def _normalize_confidence(value: Any) -> float:
+    """next_block.confidence in [0, 1]; invalid or missing → 0.0."""
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    if f < 0.0:
+        return 0.0
+    if f > 1.0:
+        return 1.0
+    return f
+
+
 def _normalize_block_analysis(data: dict[str, Any]) -> dict[str, Any]:
     """Parse ``block_analysis`` from model JSON; safe when missing or partial."""
     raw = data.get("block_analysis")
@@ -129,6 +149,9 @@ def _normalize_block_analysis(data: dict[str, Any]) -> dict[str, Any]:
                 "implementation_for_craftum": "",
                 "example": "",
                 "expected_impact": "",
+                "confidence": 0.0,
+                "why_now": "",
+                "effort": "medium",
                 "style_fit": {
                     "color_guidance": "",
                     "font_guidance": "",
@@ -152,6 +175,9 @@ def _normalize_block_analysis(data: dict[str, Any]) -> dict[str, Any]:
         "implementation_for_craftum": _as_block_text(nb_raw.get("implementation_for_craftum")),
         "example": _as_block_text(nb_raw.get("example")),
         "expected_impact": _as_block_text(nb_raw.get("expected_impact")),
+        "confidence": _normalize_confidence(nb_raw.get("confidence")),
+        "why_now": _as_block_text(nb_raw.get("why_now")),
+        "effort": _normalize_effort(nb_raw.get("effort")),
         "style_fit": {
             "color_guidance": _as_block_text(sf_raw.get("color_guidance")),
             "font_guidance": _as_block_text(sf_raw.get("font_guidance")),
@@ -163,6 +189,35 @@ def _normalize_block_analysis(data: dict[str, Any]) -> dict[str, Any]:
         "missing_blocks": missing_blocks,
         "next_block": next_block,
     }
+
+
+def _normalize_action_roadmap(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Parse top-level ``action_roadmap`` (max 3 steps); safe when missing or invalid."""
+    raw = data.get("action_roadmap")
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in raw:
+        if len(out) >= 3:
+            break
+        if not isinstance(item, dict):
+            continue
+        step_raw = item.get("step")
+        try:
+            step_int = int(step_raw) if step_raw is not None else len(out) + 1
+        except (TypeError, ValueError):
+            step_int = len(out) + 1
+        out.append(
+            {
+                "step": step_int,
+                "action": _as_block_text(item.get("action")),
+                "reason": _as_block_text(item.get("reason")),
+                "expected_impact": _as_block_text(item.get("expected_impact")),
+                "priority": _normalize_choice(_as_str(item.get("priority")), ALLOWED_PRIORITIES, "medium"),
+                "effort": _normalize_effort(item.get("effort")),
+            }
+        )
+    return out
 
 
 def validate_and_normalize_audit_result(
@@ -245,6 +300,7 @@ def validate_and_normalize_audit_result(
 
     rewrite_texts = _normalize_rewrite_texts(data)
     block_analysis = _normalize_block_analysis(data)
+    action_roadmap = _normalize_action_roadmap(data)
 
     return AuditResult(
         summary=summary,
@@ -254,6 +310,7 @@ def validate_and_normalize_audit_result(
         rewrites=rewrites,
         rewrite_texts=rewrite_texts,
         block_analysis=block_analysis,
+        action_roadmap=action_roadmap,
     )
 
 

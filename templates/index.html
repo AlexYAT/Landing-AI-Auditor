@@ -132,7 +132,7 @@
     {% if bar %}
     {% set mb = bar.missing_blocks | default([]) %}
     {% set na = bar.next_action | default({}) %}
-    {% if mb or na.type or na.priority or na.reason or na.placement or na.example or na.implementation_for_craftum or na.expected_impact %}
+    {% if mb or na.type or na.priority or na.reason or na.why_now or na.placement or na.example or na.implementation_for_craftum or na.expected_impact or na.confidence %}
     {% if mb %}
     <h2>Missing blocks</h2>
     <ul class="issues">
@@ -141,7 +141,7 @@
       {% endfor %}
     </ul>
     {% endif %}
-    {% if na.type or na.priority or na.reason or na.placement or na.example or na.implementation_for_craftum or na.expected_impact %}
+    {% if na.type or na.priority or na.reason or na.why_now or na.placement or na.example or na.implementation_for_craftum or na.expected_impact or na.confidence %}
     <h2>Next action</h2>
     {% if na.type %}
     <p><strong>Type:</strong> {{ na.type }}</p>
@@ -152,6 +152,10 @@
     {% if na.reason %}
     <p><strong>Reason:</strong></p>
     <p>{{ na.reason }}</p>
+    {% endif %}
+    {% if na.why_now %}
+    <p><strong>Why now:</strong></p>
+    <p>{{ na.why_now }}</p>
     {% endif %}
     {% if na.placement %}
     <p><strong>Placement:</strong></p>
@@ -172,8 +176,25 @@
     <p><strong>Expected impact:</strong></p>
     <p>{{ na.expected_impact }}</p>
     {% endif %}
+    {% if na.confidence and na.confidence > 0 %}
+    <p><strong>Confidence:</strong> {{ na.confidence }}</p>
     {% endif %}
     {% endif %}
+    {% endif %}
+    {% endif %}
+
+    {% if rr.action_roadmap_steps %}
+    <h2>Action Plan</h2>
+    {% for st in rr.action_roadmap_steps %}
+    <p><strong>Step {{ st.step }}.</strong>{% if st.priority %} [{{ st.priority|upper }}]{% endif %} {{ st.action }}</p>
+    {% if st.reason %}
+    <p><strong>Reason:</strong> {{ st.reason }}</p>
+    {% endif %}
+    {% if st.expected_impact %}
+    <p><strong>Expected impact:</strong> {{ st.expected_impact }}</p>
+    {% endif %}
+    {% if not loop.last %}<hr style="border:none;border-top:1px solid #eee;margin:0.75rem 0;" />{% endif %}
+    {% endfor %}
     {% endif %}
 
     {% if rewrite_texts and (rewrite_texts.get('hero') or rewrite_texts.get('cta') or rewrite_texts.get('trust')) %}

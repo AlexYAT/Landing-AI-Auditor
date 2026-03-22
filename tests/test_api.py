@@ -29,6 +29,7 @@ _MINIMAL_REPORT = {
     "quick_wins": [],
     "rewrites": [],
     "rewrite_texts": {"hero": "", "cta": "", "trust": ""},
+    "action_roadmap": [],
     "block_analysis": {
         "blocks_detected": [],
         "missing_blocks": [],
@@ -40,6 +41,8 @@ _MINIMAL_REPORT = {
             "implementation_for_craftum": "",
             "example": "",
             "expected_impact": "",
+            "confidence": 0.0,
+            "why_now": "",
             "style_fit": {"color_guidance": "", "font_guidance": "", "visual_guidance": ""},
         },
     },

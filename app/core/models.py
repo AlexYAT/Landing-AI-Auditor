@@ -134,6 +134,9 @@ def _default_block_analysis() -> dict[str, Any]:
             "implementation_for_craftum": "",
             "example": "",
             "expected_impact": "",
+            "confidence": 0.0,
+            "why_now": "",
+            "effort": "medium",
             "style_fit": {
                 "color_guidance": "",
                 "font_guidance": "",
@@ -155,6 +158,7 @@ class AuditResult:
     # Ready-to-paste strings per block (distinct from ``rewrites`` array for structured rewrite mode).
     rewrite_texts: dict[str, str] = field(default_factory=_default_rewrite_texts)
     block_analysis: dict[str, Any] = field(default_factory=_default_block_analysis)
+    action_roadmap: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert model to dictionary."""
