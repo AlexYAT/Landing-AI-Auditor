@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import logging
+import re
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Literal
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from fastapi import FastAPI, Form, HTTPException, Request, status
 from fastapi.responses import JSONResponse
@@ -16,11 +18,13 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.core.config import get_cors_allowed_origins, get_settings
 from app.core.lang import SUPPORTED_LANGS, SUPPORTED_LANGS_API_ORDER, resolve_effective_lang
+from app.core import paths
 from app.core.presets import PRESETS_API_ORDER
 from app.core.rewrite_targets import REWRITE_TARGETS_API_ORDER
 from app.providers.llm import LlmProviderError
 from app.services.analyzer import AnalyzerError
 from app.services.audit_pipeline import run_landing_audit
+from app.services.audit_storage import save_audit_report
 from app.services.parser import ParsingError
 from app.services.report_builder import build_human_report
 
@@ -28,13 +32,98 @@ logger = logging.getLogger(__name__)
 
 API_VERSION = "v1"
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-templates = Jinja2Templates(directory=str(_PROJECT_ROOT / "templates"))
+templates = Jinja2Templates(directory=str(paths.PROJECT_ROOT / "templates"))
+
+
+def _log_audits_dir_status() -> None:
+    """One-line diagnostics: same ``audits/`` as CLI (see ``app.core.paths``)."""
+    audits = paths.get_audits_dir()
+    exists = audits.is_dir()
+    n_json = 0
+    if exists:
+        n_json = sum(1 for p in audits.iterdir() if p.is_file() and p.suffix.lower() == ".json")
+    logger.info(
+        "Audits history: project_root=%s audits_dir=%s dir_exists=%s json_files=%s",
+        paths.PROJECT_ROOT,
+        audits,
+        exists,
+        n_json,
+    )
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    _log_audits_dir_status()
+    yield
+
+_AUDIT_FILENAME_RE = re.compile(
+    r"^(.+)_([a-z]{2})_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2})\.json$",
+    re.IGNORECASE,
+)
+
+
+def _audit_history_entries() -> list[dict[str, str]]:
+    """Saved audits under ``audits/`` for UI and ``GET /audits`` (newest first)."""
+    audits = paths.get_audits_dir()
+    rows: list[tuple[tuple[int, int], dict[str, str]]] = []
+    if not audits.is_dir():
+        return []
+    for p in audits.iterdir():
+        if not p.is_file() or p.suffix.lower() != ".json":
+            continue
+        m = _AUDIT_FILENAME_RE.match(p.name)
+        if m:
+            domain, _lang, date_part, time_part = m.groups()
+            hh, mm = time_part.split("-", 1)
+            ts = f"{date_part} {hh}:{mm}"
+            sort_key = (int(date_part.replace("-", "")), int(hh) * 60 + int(mm))
+        else:
+            domain, ts = "—", p.name
+            sort_key = (0, 0)
+        q = quote(p.name)
+        rows.append(
+            (
+                sort_key,
+                {
+                    "filename": p.name,
+                    "domain": domain,
+                    "timestamp": ts,
+                    "open_url": f"/ui/audit/file?filename={q}&output_mode=readable",
+                    "open_url_json": f"/ui/audit/file?filename={q}&output_mode=json",
+                },
+            )
+        )
+    rows.sort(key=lambda x: x[0], reverse=True)
+    return [r[1] for r in rows]
+
+
+def _safe_audit_file_path(filename: str) -> Path | None:
+    """Resolve a basename under ``audits/`` or return ``None`` (path traversal rejected)."""
+    if not filename or not filename.strip():
+        return None
+    base = Path(filename).name
+    if base != filename.strip():
+        return None
+    if ".." in base or "/" in base or "\\" in base:
+        return None
+    if not base.endswith(".json"):
+        return None
+    audits = paths.get_audits_dir()
+    path = (audits / base).resolve()
+    try:
+        path.relative_to(audits.resolve())
+    except ValueError:
+        return None
+    if not path.is_file():
+        return None
+    return path
+
 
 app = FastAPI(
     title="Landing AI Auditor",
     version="1.0",
     description="HTTP API for the same audit flow as the CLI (no auth).",
+    lifespan=_lifespan,
 )
 
 _origins = get_cors_allowed_origins()
@@ -216,6 +305,7 @@ def _ui_base_context(
     error: str | None = None,
     report: dict[str, Any] | None = None,
     output_mode: str = "readable",
+    audit_history: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     ctx: dict[str, Any] = {
         "form": form,
@@ -228,6 +318,7 @@ def _ui_base_context(
         "rec_blocks": [],
         "qw_lines": [],
         "rewrite_texts": None,
+        "audit_history": audit_history if audit_history is not None else _audit_history_entries(),
     }
     if report is None:
         return ctx
@@ -258,6 +349,15 @@ def get_health() -> HealthResponse:
     return HealthResponse()
 
 
+@app.get("/audits", tags=["history"])
+def list_saved_audits() -> list[dict[str, str]]:
+    """List JSON files in ``audits/`` (CLI history), with domain and timestamp from filename."""
+    return [
+        {"filename": r["filename"], "domain": r["domain"], "timestamp": r["timestamp"]}
+        for r in _audit_history_entries()
+    ]
+
+
 @app.get("/", include_in_schema=False)
 def ui_index(request: Request) -> Any:
     """Minimal HTML demo: form only."""
@@ -273,6 +373,48 @@ def ui_index(request: Request) -> Any:
                 "output_mode": "readable",
             },
         ),
+    )
+
+
+@app.get("/ui/audit/file", include_in_schema=False)
+def ui_open_saved_audit(
+    request: Request,
+    filename: str,
+    output_mode: str = "readable",
+) -> Any:
+    """Open a saved audit JSON from ``audits/`` (same rendering as a fresh UI run)."""
+    mode = output_mode if output_mode in ("json", "readable") else "readable"
+    empty_form = {
+        "url": "",
+        "task": "",
+        "preset": "general",
+        "lang": "",
+        "output_mode": mode,
+    }
+    path = _safe_audit_file_path(filename)
+    if path is None:
+        return templates.TemplateResponse(
+            request,
+            "index.html",
+            _ui_base_context(
+                form={**empty_form, "output_mode": "readable"},
+                error="Saved audit not found or invalid filename.",
+            ),
+            status_code=404,
+        )
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        return templates.TemplateResponse(
+            request,
+            "index.html",
+            _ui_base_context(form=empty_form, error=f"Could not read audit file: {exc}"),
+            status_code=400,
+        )
+    return templates.TemplateResponse(
+        request,
+        "index.html",
+        _ui_base_context(form=empty_form, report=report, output_mode=mode),
     )
 
 
@@ -341,6 +483,11 @@ def ui_audit_submit(
             ),
             status_code=500,
         )
+    try:
+        saved = save_audit_report(body.url, report)
+        logger.info("UI audit snapshot saved: %s", saved)
+    except OSError as exc:
+        logger.warning("Could not persist UI audit snapshot: %s", exc)
     return templates.TemplateResponse(
         request,
         "index.html",

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
@@ -60,6 +63,7 @@ class TestUiDemo(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("text/html", response.headers.get("content-type", ""))
         self.assertIn("Run audit", response.text)
+        self.assertIn("History", response.text)
 
     @patch("app.interfaces.api.run_landing_audit")
     def test_ui_audit_post_shows_result(self, mock_run: MagicMock) -> None:
@@ -78,6 +82,54 @@ class TestUiDemo(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn("Summary", response.text)
+
+
+class TestAuditsHistory(unittest.TestCase):
+    def setUp(self) -> None:
+        self.client = TestClient(app)
+
+    def test_get_audits_empty_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("app.core.paths.get_audits_dir", return_value=Path(tmp)):
+                response = self.client.get("/audits")
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json(), [])
+
+    def test_get_audits_parses_filename(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            t = Path(tmp)
+            (t / "my-astro_ru_2026-03-22_12-23.json").write_text("{}", encoding="utf-8")
+            with patch("app.core.paths.get_audits_dir", return_value=t):
+                response = self.client.get("/audits")
+                self.assertEqual(response.status_code, 200)
+                data = response.json()
+                self.assertEqual(len(data), 1)
+                self.assertEqual(data[0]["filename"], "my-astro_ru_2026-03-22_12-23.json")
+                self.assertEqual(data[0]["domain"], "my-astro")
+                self.assertEqual(data[0]["timestamp"], "2026-03-22 12:23")
+
+    def test_ui_open_saved_audit_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            t = Path(tmp)
+            rep = dict(_MINIMAL_REPORT)
+            rep["report_readable"] = build_human_report(rep)
+            (t / "my-astro_ru_2026-03-22_12-23.json").write_text(
+                json.dumps(rep, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            with patch("app.core.paths.get_audits_dir", return_value=t):
+                response = self.client.get(
+                    "/ui/audit/file",
+                    params={"filename": "my-astro_ru_2026-03-22_12-23.json", "output_mode": "readable"},
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertIn("Summary", response.text)
+
+    def test_ui_open_saved_rejects_invalid_name(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("app.core.paths.get_audits_dir", return_value=Path(tmp)):
+                response = self.client.get("/ui/audit/file", params={"filename": "../etc/passwd"})
+                self.assertEqual(response.status_code, 404)
 
 
 class TestHealthEndpoint(unittest.TestCase):

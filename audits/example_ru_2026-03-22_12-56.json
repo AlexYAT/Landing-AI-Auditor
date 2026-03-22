@@ -1,0 +1,73 @@
+{
+  "summary": {
+    "overall_assessment": "ok",
+    "primary_conversion_goal_guess": "leads",
+    "top_strengths": [],
+    "top_risks": []
+  },
+  "issues": [],
+  "recommendations": [],
+  "quick_wins": [],
+  "rewrites": [],
+  "rewrite_texts": {
+    "hero": "",
+    "cta": "",
+    "trust": ""
+  },
+  "action_roadmap": [],
+  "block_analysis": {
+    "blocks_detected": [],
+    "missing_blocks": [],
+    "next_block": {
+      "type": "",
+      "priority": "",
+      "reason": "",
+      "placement": "",
+      "implementation_for_craftum": "",
+      "example": "",
+      "expected_impact": "",
+      "confidence": 0.0,
+      "why_now": "",
+      "style_fit": {
+        "color_guidance": "",
+        "font_guidance": "",
+        "visual_guidance": ""
+      }
+    }
+  },
+  "language": "ru",
+  "preset": "general",
+  "report_readable": {
+    "summary": {
+      "overall_assessment": "ok",
+      "primary_conversion_goal_guess": "leads",
+      "top_strengths": [],
+      "top_risks": []
+    },
+    "issues_readable": [],
+    "recommendations_readable": [],
+    "quick_wins": [],
+    "rewrite_texts_readable": {
+      "hero": "",
+      "cta": "",
+      "trust": ""
+    },
+    "block_analysis_readable": {
+      "missing_blocks": [],
+      "next_action": {
+        "type": "",
+        "priority": "",
+        "reason": "",
+        "why_now": "",
+        "placement": "",
+        "example": "",
+        "implementation_for_craftum": "",
+        "expected_impact": "",
+        "confidence": 0.0
+      }
+    },
+    "next_action_readable": "",
+    "action_roadmap_steps": [],
+    "action_roadmap_readable": ""
+  }
+}

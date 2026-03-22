@@ -23,11 +23,34 @@
     .rewrite-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.75rem; }
     .rewrite-head h3 { margin: 0; font-size: 0.95rem; }
     button.copy-btn { margin-top: 0; padding: 0.35rem 0.65rem; font-size: 0.8rem; }
+    ul.audit-history { list-style: none; padding: 0; margin: 0.5rem 0 0; }
+    ul.audit-history li { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.5rem 1rem; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
+    ul.audit-history li:last-child { border-bottom: none; }
+    .audit-meta { font-size: 0.9rem; }
+    .audit-actions a { font-size: 0.85rem; color: #2563eb; }
   </style>
 </head>
 <body>
   <h1>Landing AI Auditor</h1>
   <p class="muted">Manual audit (uses the same pipeline as <code>POST /audit</code>).</p>
+
+  <h2>History</h2>
+  <p class="muted">Saved audits in <code>audits/</code> (same files as CLI history).</p>
+  {% if audit_history %}
+  <ul class="audit-history">
+    {% for row in audit_history %}
+    <li>
+      <span class="audit-meta">{{ row.timestamp }} · <strong>{{ row.domain }}</strong></span>
+      <span class="audit-actions">
+        <a href="{{ row.open_url }}">Open</a>
+        · <a href="{{ row.open_url_json }}">JSON</a>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No saved audits yet.</p>
+  {% endif %}
 
   <form method="post" action="/ui/audit">
     <label for="url">URL</label>

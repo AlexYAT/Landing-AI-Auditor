@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import sys
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -17,24 +16,13 @@ from app.providers.llm import LlmProviderError
 from app.services.analyzer import AnalyzerError
 from app.services.assignment_formatter import format_assignment_output
 from app.services.audit_pipeline import run_landing_audit
+from app.services.audit_storage import save_audit_report
 from app.services.diff_summary import build_diff_payload_for_llm, summarize_diff_with_llm
 from app.services.exporter import export_report
 from app.services.parser import ParsingError
 from app.services.report_builder import build_human_report, format_summary_readable
 
 logger = logging.getLogger(__name__)
-
-_AUDITS_DIR = Path("audits")
-
-
-def _audit_domain_slug(url: str) -> str:
-    """First hostname label for filenames (e.g. my-astro.ru → my-astro)."""
-    host = urlparse(url).hostname or ""
-    if not host:
-        return "unknown"
-    label = host.split(".")[0].lower()
-    safe = "".join(c if (c.isalnum() or c in "-_") else "_" for c in label)
-    return safe.strip("_") or "unknown"
 
 
 def _missing_blocks_set(report: dict[str, Any]) -> set[str]:
@@ -290,23 +278,6 @@ def _run_diff(path1: str, path2: str) -> int:
         return 1
     _print_audit_diff(old_rep, new_rep)
     return 0
-
-
-def _write_audit_history(url: str, report: dict[str, Any]) -> str:
-    """
-    Persist full report JSON under ``audits/`` for CLI history.
-
-    Returns POSIX-style relative path for display (e.g. ``audits/foo_ru_2026-03-22_10-30.json``).
-    """
-    _AUDITS_DIR.mkdir(parents=True, exist_ok=True)
-    domain = _audit_domain_slug(url)
-    lang = normalize_lang(report.get("language"))
-    ts = datetime.now().strftime("%Y-%m-%d_%H-%M")
-    fname = f"{domain}_{lang}_{ts}.json"
-    path = _AUDITS_DIR / fname
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(report, f, ensure_ascii=False, indent=2)
-    return path.as_posix()
 
 
 def _configure_stdio_utf8() -> None:
@@ -587,7 +558,7 @@ def run() -> int:
         else:
             print(json.dumps(report, ensure_ascii=False, indent=2))
 
-        history_path = _write_audit_history(args.url, report)
+        history_path = save_audit_report(args.url, report)
 
         save_path = getattr(args, "save_report", None)
         if save_path:
