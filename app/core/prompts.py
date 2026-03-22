@@ -143,7 +143,8 @@ Prefer the rewrites array order: {order}.
 LANG_RULES: dict[str, str] = {
     "ru": (
         "Отвечай строго на русском языке. Весь пользовательский текст в summary, issues, "
-        "recommendations, quick_wins, в rewrite_texts (hero, cta, trust) и в rewrites (поля before, after, why) "
+        "recommendations, quick_wins, block_analysis (включая blocks_detected, missing_blocks, next_block и style_fit), "
+        "в rewrite_texts (hero, cta, trust) и в rewrites (поля before, after, why) "
         "должен быть строго на русском. "
         "Не используй английский в этих полях. Если ты используешь другой язык в текстовых полях ответа, это ошибка. "
         "Все формулировки должны звучать естественно для носителя русского языка. Избегай "
@@ -152,7 +153,8 @@ LANG_RULES: dict[str, str] = {
     ),
     "en": (
         "Respond strictly in English. All user-facing text in summary, issues, recommendations, "
-        "quick_wins, in rewrite_texts (hero, cta, trust), and in rewrites (fields before, after, why) "
+        "quick_wins, block_analysis (including blocks_detected, missing_blocks, next_block, and style_fit), "
+        "in rewrite_texts (hero, cta, trust), and in rewrites (fields before, after, why) "
         "must be strictly in English. "
         "Do not use Russian or other languages in those fields. If you use another language in textual fields "
         "of the response, that is an error. All wording must sound natural to a native English speaker. "
@@ -325,6 +327,128 @@ rewrite_texts (required top-level object; use key ``rewrite_texts`` — not the 
 - trust: trust-section copy (testimonial, case snippet, or guarantee framing); ground in page data; do not invent metrics or names not supported by the landing JSON.
 - Apply user business task (when present) and landing preset to tone and emphasis.
 
+### BLOCK ANALYSIS (IMPORTANT)
+
+Analyze the landing page as a sequence of logical blocks.
+
+Identify:
+
+- which blocks are already present (hero, features, testimonials, faq, pricing, form, etc.)
+- which important blocks are missing
+
+Then determine the NEXT BEST BLOCK to add to improve conversion.
+
+Rules:
+
+- Think like a CRO / UX expert
+- Be practical, not theoretical
+- Recommend only ONE next block (most impactful)
+
+For next_block:
+
+- type: clear block type (e.g. testimonials, faq, lead_form)
+- reason: why this block is critical now
+- placement: where exactly to insert it (after which section)
+- implementation_for_craftum:
+
+  - how to find/add this block in Craftum
+  - what to configure
+- example: provide ready-to-use text/content for the block
+- style_fit:
+
+  - DO NOT invent exact colors or fonts
+  - recommend keeping current style
+  - describe how to match existing design
+
+Avoid generic advice. Be specific and actionable.
+
+CRITICAL QUALITY RULES:
+
+* Do NOT suggest generic blocks like "improve UX", "add more info", or "enhance design"
+
+* The block MUST be concrete (e.g. testimonials, faq, lead_form, pricing, guarantee)
+
+* Recommend ONLY ONE block. Never suggest multiple options.
+
+* Placement MUST reference a real section of the page:
+  examples:
+
+  * "after hero section"
+  * "after services section"
+  * "before final CTA"
+
+* The recommendation must be immediately actionable in Craftum
+
+* implementation_for_craftum MUST include:
+
+  * which block to select in Craftum
+  * what to configure (text, layout, fields)
+
+* Example MUST be ready to use:
+
+  * no placeholders
+  * no "your text here"
+  * no abstract text
+  * must be realistic and specific
+
+* If block type is:
+  testimonials:
+  include 1–2 realistic testimonials
+  faq:
+  include 2–3 real questions with answers
+  lead_form:
+  include fields and CTA text
+
+* Prefer blocks that reduce user doubts:
+  testimonials, faq, trust, guarantees
+
+* Avoid abstract reasoning. Be specific and practical.
+
+DECISION PRIORITY RULES:
+
+When choosing the next_block, follow this priority:
+
+1. If there is no trust → suggest testimonials or proof
+2. If there are unanswered questions → suggest FAQ
+3. If there is weak conversion → suggest lead form or CTA block
+4. If the offer is unclear → suggest benefits/features block
+
+Always choose the MOST impactful missing element.
+
+---
+
+CONSISTENCY RULES:
+
+* Do NOT suggest a block that already clearly exists on the page
+* blocks_detected and next_block must be logically consistent
+* missing_blocks must include the suggested next_block type
+
+---
+
+PLACEMENT PRECISION RULES:
+
+* Placement must reference an actual visible section:
+  examples:
+
+  * "after hero section"
+  * "after services block"
+  * "before final CTA"
+
+* Do NOT use vague phrases like:
+  "somewhere on the page"
+  "in the middle"
+  "where appropriate"
+
+---
+
+IMPACT FOCUS:
+
+* Choose the block that most reduces user doubt or friction
+* Prefer high-impact blocks over decorative ones
+* Think in terms of conversion, not design
+
+---
+
 Return STRICT JSON only.
 - No markdown.
 - No code fences.
@@ -372,6 +496,22 @@ OUTPUT FORMAT (STRICT JSON)
     "hero": "string",
     "cta": "string",
     "trust": "string"
+  },
+  "block_analysis": {
+    "blocks_detected": ["string"],
+    "missing_blocks": ["string"],
+    "next_block": {
+      "type": "string",
+      "reason": "string",
+      "placement": "string",
+      "implementation_for_craftum": "string",
+      "example": "string",
+      "style_fit": {
+        "color_guidance": "string",
+        "font_guidance": "string",
+        "visual_guidance": "string"
+      }
+    }
   }
 }
 """.strip()

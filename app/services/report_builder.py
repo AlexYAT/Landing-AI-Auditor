@@ -4,7 +4,67 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.core.lang import normalize_lang
+
 _REWRITE_KEYS = ("hero", "cta", "trust")
+
+
+def _txt(v: Any) -> str:
+    if v is None:
+        return ""
+    if isinstance(v, str):
+        return v.strip()
+    return str(v).strip()
+
+
+def _empty_block_analysis_readable() -> dict[str, Any]:
+    return {
+        "missing_blocks": [],
+        "next_action": {
+            "type": "",
+            "reason": "",
+            "placement": "",
+            "example": "",
+        },
+    }
+
+
+def _build_block_analysis_readable(report: dict) -> dict[str, Any]:
+    """Human-readable slice of ``block_analysis`` (Next action + missing list)."""
+    ba = report.get("block_analysis")
+    if not isinstance(ba, dict):
+        return _empty_block_analysis_readable()
+    missing_raw = ba.get("missing_blocks")
+    missing_list: list[str] = []
+    if isinstance(missing_raw, list):
+        for x in missing_raw:
+            t = _txt(x)
+            if t:
+                missing_list.append(t)
+    nb = ba.get("next_block")
+    if not isinstance(nb, dict):
+        nb = {}
+    next_action = {
+        "type": _txt(nb.get("type")),
+        "reason": _txt(nb.get("reason")),
+        "placement": _txt(nb.get("placement")),
+        "example": _txt(nb.get("example")),
+    }
+    return {"missing_blocks": missing_list, "next_action": next_action}
+
+
+def _next_action_text_block(next_action: dict[str, str]) -> str:
+    """Multiline block for CLI/markdown (same spirit as recommendations)."""
+    if not any(next_action.values()):
+        return ""
+    return (
+        "---\n"
+        f"Тип блока:\n{next_action['type']}\n\n"
+        f"Причина:\n{next_action['reason']}\n\n"
+        f"Где вставить:\n{next_action['placement']}\n\n"
+        f"Пример текста:\n{next_action['example']}\n"
+        "---"
+    )
 
 
 def _normalize_rewrite_texts_readable(report: dict) -> dict[str, str]:
@@ -24,6 +84,72 @@ def _issue_line(item: dict[str, Any]) -> str:
     kind = str(item.get("category", item.get("type", ""))).strip().upper() or "OTHER"
     desc = str(item.get("title", item.get("description", ""))).strip() or "—"
     return f"🔥 {severity} {kind}: {desc}"
+
+
+def format_summary_readable(summary: Any, lang: str | None = None) -> str:
+    """
+    Turn ``summary`` dict into plain text (aligned with demo UI sections).
+
+    Skips empty fields/sections. Non-dict ``summary`` is returned as ``str``.
+    """
+    if summary is None:
+        return ""
+    code = normalize_lang(lang)
+    if not isinstance(summary, dict):
+        return str(summary)
+
+    labels = {
+        "ru": {
+            "overall": "Общая оценка:",
+            "goal": "Основная цель конверсии:",
+            "strengths": "Сильные стороны:",
+            "risks": "Риски:",
+        },
+        "en": {
+            "overall": "Overall assessment:",
+            "goal": "Primary conversion goal:",
+            "strengths": "Strengths:",
+            "risks": "Risks:",
+        },
+    }
+    L = labels.get(code, labels["en"])
+
+    parts: list[str] = []
+    oa = _txt(summary.get("overall_assessment"))
+    if oa:
+        parts.extend([L["overall"], oa, ""])
+
+    pg = _txt(summary.get("primary_conversion_goal_guess"))
+    if pg:
+        parts.extend([L["goal"], pg, ""])
+
+    strengths: list[str] = []
+    ts = summary.get("top_strengths")
+    if isinstance(ts, list):
+        for x in ts:
+            t = _txt(x)
+            if t:
+                strengths.append(t)
+    if strengths:
+        parts.append(L["strengths"])
+        for s in strengths:
+            parts.append(f"* {s}")
+        parts.append("")
+
+    risks: list[str] = []
+    tr = summary.get("top_risks")
+    if isinstance(tr, list):
+        for x in tr:
+            t = _txt(x)
+            if t:
+                risks.append(t)
+    if risks:
+        parts.append(L["risks"])
+        for s in risks:
+            parts.append(f"* {s}")
+        parts.append("")
+
+    return "\n".join(parts).rstrip()
 
 
 def _recommendation_block(rec: dict[str, Any]) -> str:
@@ -64,10 +190,15 @@ def build_human_report(report: dict) -> dict:
         if isinstance(rec, dict):
             recommendations_readable.append(_recommendation_block(rec))
 
+    bar = _build_block_analysis_readable(report)
+    next_action_readable = _next_action_text_block(bar["next_action"])
+
     return {
         "summary": raw_summary,
         "issues_readable": issues_readable,
         "recommendations_readable": recommendations_readable,
         "quick_wins": report.get("quick_wins", []),
         "rewrite_texts_readable": _normalize_rewrite_texts_readable(report),
+        "block_analysis_readable": bar,
+        "next_action_readable": next_action_readable,
     }

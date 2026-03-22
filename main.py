@@ -18,7 +18,7 @@ from app.services.assignment_formatter import format_assignment_output
 from app.services.audit_pipeline import run_landing_audit
 from app.services.exporter import export_report
 from app.services.parser import ParsingError
-from app.services.report_builder import build_human_report
+from app.services.report_builder import build_human_report, format_summary_readable
 
 logger = logging.getLogger(__name__)
 
@@ -34,12 +34,9 @@ def _configure_stdio_utf8() -> None:
                 pass
 
 
-def _summary_text_for_console(summary: Any) -> str:
-    if summary is None:
-        return ""
-    if isinstance(summary, dict):
-        return json.dumps(summary, ensure_ascii=False, indent=2)
-    return str(summary)
+def _summary_for_readable(report: dict[str, Any], rr: dict[str, Any]) -> str:
+    """Plain-text summary for CLI readable / save-report (not raw JSON)."""
+    return format_summary_readable(rr.get("summary"), report.get("language"))
 
 
 def _readable_payload(report: dict[str, Any]) -> dict[str, Any]:
@@ -48,6 +45,21 @@ def _readable_payload(report: dict[str, Any]) -> dict[str, Any]:
     if isinstance(rr, dict):
         return rr
     return build_human_report(report)
+
+
+def _block_analysis_visible(rr: dict[str, Any]) -> bool:
+    if rr.get("next_action_readable"):
+        return True
+    bar = rr.get("block_analysis_readable")
+    if not isinstance(bar, dict):
+        return False
+    mb = bar.get("missing_blocks") or []
+    if mb:
+        return True
+    na = bar.get("next_action")
+    if not isinstance(na, dict):
+        return False
+    return any(str(v).strip() for v in na.values())
 
 
 def _rewrite_texts_readable_nonempty(rr: dict[str, Any]) -> bool:
@@ -83,7 +95,7 @@ def _build_readable_markdown(report: dict[str, Any]) -> str:
     rr = _readable_payload(report)
     parts: list[str] = [
         "# Summary",
-        _summary_text_for_console(rr.get("summary")),
+        _summary_for_readable(report, rr),
         "",
         "# Issues",
     ]
@@ -98,6 +110,18 @@ def _build_readable_markdown(report: dict[str, Any]) -> str:
     parts.extend(["", "# Quick Wins"])
     for item in rr.get("quick_wins") or []:
         parts.append(_format_quick_win_line(item))
+    if _block_analysis_visible(rr):
+        bar = rr.get("block_analysis_readable")
+        if not isinstance(bar, dict):
+            bar = {}
+        mb = list(bar.get("missing_blocks") or [])
+        if mb:
+            parts.extend(["", "# Missing blocks", ""])
+            for line in mb:
+                parts.append(f"- {line}")
+        nar = rr.get("next_action_readable") or ""
+        if nar.strip():
+            parts.extend(["", "# Next action", "", nar])
     if _rewrite_texts_readable_nonempty(rr):
         rt = rr.get("rewrite_texts_readable")
         if not isinstance(rt, dict):
@@ -134,7 +158,7 @@ def _print_readable_console(report: dict[str, Any]) -> None:
     rr = _readable_payload(report)
 
     print("=== SUMMARY ===")
-    print(_summary_text_for_console(rr.get("summary")))
+    print(_summary_for_readable(report, rr))
     print()
     print("=== ISSUES ===")
     for line in rr.get("issues_readable") or []:
@@ -150,6 +174,21 @@ def _print_readable_console(report: dict[str, Any]) -> None:
     print("=== QUICK WINS ===")
     for item in rr.get("quick_wins") or []:
         _print_quick_win_line(item)
+    if _block_analysis_visible(rr):
+        bar = rr.get("block_analysis_readable")
+        if not isinstance(bar, dict):
+            bar = {}
+        mb = list(bar.get("missing_blocks") or [])
+        if mb:
+            print()
+            print("=== MISSING BLOCKS ===")
+            for line in mb:
+                print(f"- {line}")
+        nar = (rr.get("next_action_readable") or "").strip()
+        if nar:
+            print()
+            print("=== NEXT ACTION ===")
+            print(nar)
     if _rewrite_texts_readable_nonempty(rr):
         rt = rr.get("rewrite_texts_readable")
         if not isinstance(rt, dict):

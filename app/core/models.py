@@ -122,6 +122,25 @@ def _default_rewrite_texts() -> dict[str, str]:
     return {"hero": "", "cta": "", "trust": ""}
 
 
+def _default_block_analysis() -> dict[str, Any]:
+    return {
+        "blocks_detected": [],
+        "missing_blocks": [],
+        "next_block": {
+            "type": "",
+            "reason": "",
+            "placement": "",
+            "implementation_for_craftum": "",
+            "example": "",
+            "style_fit": {
+                "color_guidance": "",
+                "font_guidance": "",
+                "visual_guidance": "",
+            },
+        },
+    }
+
+
 @dataclass
 class AuditResult:
     """Final audit report in JSON-friendly structure."""
@@ -133,6 +152,7 @@ class AuditResult:
     rewrites: list[ContentRewrite] = field(default_factory=list)
     # Ready-to-paste strings per block (distinct from ``rewrites`` array for structured rewrite mode).
     rewrite_texts: dict[str, str] = field(default_factory=_default_rewrite_texts)
+    block_analysis: dict[str, Any] = field(default_factory=_default_block_analysis)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert model to dictionary."""

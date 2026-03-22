@@ -98,6 +98,62 @@ def _normalize_rewrite_texts(data: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def _as_block_text(data: Any) -> str:
+    """String for block_analysis fields; preserve newlines for multi-line copy."""
+    if data is None:
+        return ""
+    if isinstance(data, str):
+        return data.strip()
+    return str(data).strip()
+
+
+def _normalize_block_analysis(data: dict[str, Any]) -> dict[str, Any]:
+    """Parse ``block_analysis`` from model JSON; safe when missing or partial."""
+    raw = data.get("block_analysis")
+    if not isinstance(raw, dict):
+        return {
+            "blocks_detected": [],
+            "missing_blocks": [],
+            "next_block": {
+                "type": "",
+                "reason": "",
+                "placement": "",
+                "implementation_for_craftum": "",
+                "example": "",
+                "style_fit": {
+                    "color_guidance": "",
+                    "font_guidance": "",
+                    "visual_guidance": "",
+                },
+            },
+        }
+    blocks_detected = _as_str_list(raw.get("blocks_detected"))
+    missing_blocks = _as_str_list(raw.get("missing_blocks"))
+    nb_raw = raw.get("next_block")
+    if not isinstance(nb_raw, dict):
+        nb_raw = {}
+    sf_raw = nb_raw.get("style_fit")
+    if not isinstance(sf_raw, dict):
+        sf_raw = {}
+    next_block = {
+        "type": _as_block_text(nb_raw.get("type")),
+        "reason": _as_block_text(nb_raw.get("reason")),
+        "placement": _as_block_text(nb_raw.get("placement")),
+        "implementation_for_craftum": _as_block_text(nb_raw.get("implementation_for_craftum")),
+        "example": _as_block_text(nb_raw.get("example")),
+        "style_fit": {
+            "color_guidance": _as_block_text(sf_raw.get("color_guidance")),
+            "font_guidance": _as_block_text(sf_raw.get("font_guidance")),
+            "visual_guidance": _as_block_text(sf_raw.get("visual_guidance")),
+        },
+    }
+    return {
+        "blocks_detected": blocks_detected,
+        "missing_blocks": missing_blocks,
+        "next_block": next_block,
+    }
+
+
 def validate_and_normalize_audit_result(
     data: dict[str, Any],
     lang: str = DEFAULT_LANG,
@@ -177,6 +233,7 @@ def validate_and_normalize_audit_result(
             rewrites = _normalize_rewrites_ordered(data, tuple(ordered))
 
     rewrite_texts = _normalize_rewrite_texts(data)
+    block_analysis = _normalize_block_analysis(data)
 
     return AuditResult(
         summary=summary,
@@ -185,6 +242,7 @@ def validate_and_normalize_audit_result(
         quick_wins=quick_wins,
         rewrites=rewrites,
         rewrite_texts=rewrite_texts,
+        block_analysis=block_analysis,
     )
 
 

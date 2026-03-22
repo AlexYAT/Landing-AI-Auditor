@@ -128,6 +128,43 @@
     <p class="muted">—</p>
     {% endif %}
 
+    {% set bar = rr.block_analysis_readable | default(none) %}
+    {% if bar %}
+    {% set mb = bar.missing_blocks | default([]) %}
+    {% set na = bar.next_action | default({}) %}
+    {% if mb or na.type or na.reason or na.placement or na.example %}
+    {% if mb %}
+    <h2>Missing blocks</h2>
+    <ul class="issues">
+      {% for line in mb %}
+      <li>{{ line }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if na.type or na.reason or na.placement or na.example %}
+    <h2>Next action</h2>
+    {% if na.type %}
+    <p><strong>Type:</strong> {{ na.type }}</p>
+    {% endif %}
+    {% if na.reason %}
+    <p><strong>Reason:</strong></p>
+    <p>{{ na.reason }}</p>
+    {% endif %}
+    {% if na.placement %}
+    <p><strong>Placement:</strong></p>
+    <p>{{ na.placement }}</p>
+    {% endif %}
+    {% if na.example %}
+    <div class="rewrite-head">
+      <h3 style="font-size:0.95rem;margin-top:0.75rem;">Example</h3>
+      <button type="button" class="copy-btn" data-copy-target="block-next-example">Copy</button>
+    </div>
+    <pre id="block-next-example" class="block">{{ na.example }}</pre>
+    {% endif %}
+    {% endif %}
+    {% endif %}
+    {% endif %}
+
     {% if rewrite_texts and (rewrite_texts.get('hero') or rewrite_texts.get('cta') or rewrite_texts.get('trust')) %}
     <h2>Rewrites</h2>
     <p class="muted">Ready-to-paste blocks (<code>rewrite_texts</code>)</p>
@@ -146,6 +183,8 @@
       <button type="button" class="copy-btn" data-copy-target="rewrite-trust">Copy</button>
     </div>
     <pre id="rewrite-trust" class="block">{{ rewrite_texts.get('trust', '') }}</pre>
+    {% endif %}
+
     <script>
 (function () {
   document.querySelectorAll("button.copy-btn").forEach(function (btn) {
@@ -162,7 +201,6 @@
   });
 })();
     </script>
-    {% endif %}
   </div>
   {% endif %}
 

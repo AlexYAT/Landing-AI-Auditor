@@ -29,6 +29,18 @@ _MINIMAL_REPORT = {
     "quick_wins": [],
     "rewrites": [],
     "rewrite_texts": {"hero": "", "cta": "", "trust": ""},
+    "block_analysis": {
+        "blocks_detected": [],
+        "missing_blocks": [],
+        "next_block": {
+            "type": "",
+            "reason": "",
+            "placement": "",
+            "implementation_for_craftum": "",
+            "example": "",
+            "style_fit": {"color_guidance": "", "font_guidance": "", "visual_guidance": ""},
+        },
+    },
     "language": "ru",
     "preset": "general",
 }

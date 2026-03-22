@@ -123,6 +123,9 @@ class TestRewriteSchema(unittest.TestCase):
         self.assertEqual(d["rewrites"], [])
         self.assertIn("rewrite_texts", d)
         self.assertEqual(d["rewrite_texts"], {"hero": "", "cta": "", "trust": ""})
+        self.assertIn("block_analysis", d)
+        self.assertIsInstance(d["block_analysis"], dict)
+        self.assertIn("next_block", d["block_analysis"])
 
     def test_validate_extracts_hero_rewrite(self) -> None:
         data = {
