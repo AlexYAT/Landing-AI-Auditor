@@ -585,59 +585,53 @@ OUTPUT FORMAT (STRICT JSON)
 _CRAFTUM_MODE_RU = """
 ### CRAFTUM MODE (IMPORTANT)
 
-Требования:
+Режим **инструкции внедрения**, не общего CRO-эссе. Без абстрактных советов, теории и длинных рассуждений — только то, что можно сделать в Craftum.
 
-* Давать рекомендации **только** в формате, применимом в конструкторе сайтов Craftum.
-* Использовать реальные названия блоков из типичной библиотеки Craftum, например: **Hero**, **Отзывы**, **Форма**, **Преимущества** (при необходимости уточни, как блок называется в каталоге).
-* Избегать абстрактных советов.
+Каждая рекомендация (``recommendations[]``) и блок **NEXT ACTION** (``block_analysis.next_block``) **обязаны** следовать одной структуре в тексте ``implementation_for_craftum`` (и при необходимости дублировать суть в ``title`` / ``action``). Используй **ровно такие заголовки секций** (можно с двоеточием):
 
-Каждая рекомендация в массиве ``recommendations`` **должна** явно содержать:
+1. **Блок в Craftum** — как называется блок в каталоге (например «Отзывы», «Hero»).
+2. **Где** — куда вставить относительно уже существующих секций (например «сразу после первого экрана (hero)», «перед финальным CTA»).
+3. **Поля** — конкретные значения для заполнения в редакторе (списком маркеров). Пример формата:
+   * Имя: Марина, 34 года
+   * Текст: …
+   * Заголовок блока: Отзывы клиентов
+4. **Шаги** — только нумерованный список **1.** **2.** **3.** … максимально короткие шаги, без лишних пояснений; в каждом шаге одно действие.
+5. **Готовый текст** — полный текст для вставки в блок (или явно: «см. поле example ниже»); поле ``example_text`` (для рекомендаций) и ``example`` (для next_block) **должны** содержать этот же готовый текст или его основную часть, без пустых заглушек.
+6. **Проверка** — как убедиться, что всё сделано. Пример формата:
+   * Блок отображается сразу после hero
+   * Есть минимум 2 отзыва
 
-* тип блока (логический id: ``testimonials``, ``lead_form``, ``hero`` и т.д.) — в ``title`` / ``action``;
-* название блока в Craftum (например «Отзывы») — в ``implementation_for_craftum`` или ``action``;
-* где вставить (``after hero``, ``before CTA`` и т.п.) — в ``implementation_for_craftum``;
-* пошаговое внедрение (**1.** **2.** **3.**) — в ``implementation_for_craftum``;
-* пример текста — в ``example_text`` (обязательно непустой).
+Запрещено: абстрактные формулировки («улучшить UX», «сделать лучше дизайн», «переработать структуру»), теоретические объяснения «почему так важно» длиннее двух коротких фраз в ``reason`` / ``expected_impact``, длинные рассуждения в ``implementation_for_craftum``.
 
-Запрещено:
+Разрешено только конкретное: «добавить блок отзывов после hero», «добавить H1 в hero» и т.п.
 
-* «улучшить UX», «сделать лучше дизайн», «переработать структуру» без конкретного блока и шагов.
-
-Разрешено только конкретное, например:
-
-* «добавить блок отзывов после hero»
-* «добавить H1 в hero»
-
-**NEXT ACTION** при preset craftum: для ``block_analysis.next_block`` обязательны элементы **block_name** (первая строка ``implementation_for_craftum``: ``Блок в конструкторе: «…»``), **steps** (нумерованный список 1. 2. 3. в том же поле), **placement** (чётко относительно секций страницы), **content example** (поле ``example``, готовый текст для вставки).
+Для **NEXT ACTION** при preset craftum поле ``implementation_for_craftum`` **обязано** содержать те же шесть секций (**Блок в Craftum**, **Где**, **Поля**, **Шаги**, **Готовый текст**, **Проверка**); поле ``example`` — дублирует или дополняет **Готовый текст** готовым копипастом.
 """.strip()
 
 _CRAFTUM_MODE_EN = """
 ### CRAFTUM MODE (IMPORTANT)
 
-Requirements:
+**Implementation guide** mode, not a generic CRO essay. No abstract tips, theory, or long prose — only Craftum-executable steps.
 
-* Give recommendations **only** in a form that can be executed inside the Craftum site builder.
-* Use realistic Craftum block library names, e.g. **Hero**, **Testimonials** / **Reviews**, **Form**, **Benefits** (clarify the catalog label if needed).
-* Avoid abstract advice.
+Each **recommendation** (``recommendations[]``) and **NEXT ACTION** (``block_analysis.next_block``) **must** follow one structure in the ``implementation_for_craftum`` text (and mirror key points in ``title`` / ``action`` where helpful). Use **exactly these section headings** (with optional colon):
 
-Each object in the ``recommendations`` array **must** clearly include:
+1. **Block in Craftum** — catalog name (e.g. "Reviews", "Testimonials", "Hero").
+2. **Where** — insert position relative to existing sections (e.g. "right after the hero block", "before the final CTA").
+3. **Fields** — concrete values to fill in the editor (bulleted list). Example format:
+   * Name: Marina, 34
+   * Body text: …
+   * Block title: Client reviews
+4. **Steps** — numbered **1.** **2.** **3.** only; short imperative lines, one action per step; no filler text.
+5. **Ready-to-use text** — full paste-ready copy (or explicitly "see example field below"); ``example_text`` and ``example`` must hold that copy or its main part, non-empty.
+6. **Verification** — how to confirm it is done. Example:
+   * Block appears immediately after the hero
+   * At least 2 reviews are visible
 
-* block type (logical id: ``testimonials``, ``lead_form``, ``hero``, etc.) in ``title`` / ``action``;
-* Craftum block label (e.g. "Reviews") in ``implementation_for_craftum`` or ``action``;
-* where to insert (``after hero``, ``before CTA``, etc.) in ``implementation_for_craftum``;
-* numbered implementation steps (**1.** **2.** **3.**) in ``implementation_for_craftum``;
-* sample copy in ``example_text`` (required, non-empty).
+Forbidden: vague advice ("improve UX", "improve the design", "rework the structure"), long theoretical explanations, lengthy rambling in ``implementation_for_craftum``.
 
-Forbidden:
+Allowed only concrete actions, e.g. "add a testimonials block after the hero", "add an H1 in the hero block".
 
-* "improve UX", "improve the design", "rework the structure" without naming a concrete block and steps.
-
-Allowed only concrete wording, e.g.:
-
-* "add a testimonials block after the hero"
-* "add an H1 in the hero block"
-
-**NEXT ACTION** with craftum preset: ``block_analysis.next_block`` must include **block_name** (first line of ``implementation_for_craftum``: ``In the builder, name this block: "..."``), **steps** (numbered 1. 2. 3. in the same field), **placement** (precise vs page sections), **content example** (the ``example`` field with paste-ready text).
+For **NEXT ACTION** with craftum preset, ``implementation_for_craftum`` **must** include all six sections (**Block in Craftum**, **Where**, **Fields**, **Steps**, **Ready-to-use text**, **Verification**); ``example`` duplicates or extends **Ready-to-use text** for paste.
 """.strip()
 
 
