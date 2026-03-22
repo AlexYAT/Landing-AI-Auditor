@@ -143,7 +143,9 @@ Prefer the rewrites array order: {order}.
 LANG_RULES: dict[str, str] = {
     "ru": (
         "Отвечай строго на русском языке. Весь пользовательский текст в summary, issues, "
-        "recommendations, quick_wins, block_analysis (включая blocks_detected, missing_blocks, next_block: priority, expected_impact, confidence, why_now, style_fit), action_roadmap, "
+        "recommendations, quick_wins, block_analysis (включая blocks_detected, missing_blocks, next_block: "
+        "type как block_type, placement, reason, implementation_for_craftum — первая строка «Блок в конструкторе: «…»», "
+        "далее нумерованные шаги 1. 2. 3.; example, expected_impact, confidence, why_now, style_fit), action_roadmap, "
         "в rewrite_texts (hero, cta, trust) и в rewrites (поля before, after, why) "
         "должен быть строго на русском. "
         "Не используй английский в этих полях. Если ты используешь другой язык в текстовых полях ответа, это ошибка. "
@@ -153,7 +155,10 @@ LANG_RULES: dict[str, str] = {
     ),
     "en": (
         "Respond strictly in English. All user-facing text in summary, issues, recommendations, "
-        "quick_wins, block_analysis (including blocks_detected, missing_blocks, next_block: priority, expected_impact, confidence, why_now, style_fit), action_roadmap, "
+        "quick_wins, block_analysis (including blocks_detected, missing_blocks, next_block: "
+        "type as block_type, placement, reason, implementation_for_craftum — first line "
+        "'In the builder, name this block: \"...\"', then numbered steps 1. 2. 3.; "
+        "example, expected_impact, confidence, why_now, style_fit), action_roadmap, "
         "in rewrite_texts (hero, cta, trust), and in rewrites (fields before, after, why) "
         "must be strictly in English. "
         "Do not use Russian or other languages in those fields. If you use another language in textual fields "
@@ -344,35 +349,62 @@ Rules:
 - Be practical, not theoretical
 - Recommend only ONE next block (most impactful)
 
-For next_block:
+For next_block (same JSON keys as the schema; semantic requirements below):
 
-- type: clear block type (e.g. testimonials, faq, lead_form)
-- priority: "high" or "medium" (prefer "high" for this single recommended next block)
-- reason: why this block is critical now
-- placement: where exactly to insert it (after which section)
-- implementation_for_craftum:
+- **type** (this is the canonical **block_type** for builders): a concrete machine id such as ``hero``, ``testimonials``, ``faq``, ``lead_form``, ``pricing``, ``guarantee``, ``features`` — never abstract labels like "ux" or "structure".
 
-  - how to find/add this block in Craftum
-  - what to configure
-- example: provide ready-to-use text/content for the block
-- expected_impact: short practical conversion-oriented effect (e.g. higher trust, more qualified leads); no vague fluff
-- confidence: number from 0 to 1 (e.g. 0.8) expressing how confident you are this is the right next block
-- why_now: brief explanation why this block should be added first (sequence of improvements, urgency); do NOT repeat reason verbatim; focus on order/priority of fixes
-- style_fit:
+- **priority**: "high" or "medium" (prefer "high" for this single recommended next block)
 
-  - DO NOT invent exact colors or fonts
-  - recommend keeping current style
-  - describe how to match existing design
+- **reason**: why this block is critical now — must name a concrete block and outcome (e.g. "добавить отзывы, чтобы снять сомнения перед заявкой"). Do NOT restate only generic goals.
+
+- **placement**: where exactly to insert it — must name a real section on THIS page (e.g. "сразу после первого экрана (hero)", "перед финальным CTA"). Same information as **placement** in builders; be precise.
+
+- **block_name** (human label for Craftum / constructor): MUST appear as the **first line** of ``implementation_for_craftum`` in this exact pattern:
+  - Russian audits: ``Блок в конструкторе: «…»`` (e.g. ``Блок в конструкторе: «Отзывы»``)
+  - English audits: ``In the builder, name this block: "..."``
+
+- **steps** (numbered checklist): after that first line, ``implementation_for_craftum`` MUST continue with **at least three numbered steps** ``1.`` ``2.`` ``3.`` (add ``4.`` if needed) that read like a direct implementation guide, e.g.:
+
+  1. Open the Craftum (or site builder) editor for this page.
+  2. Add the block type that matches ``type`` / **block_type** (use the name from **block_name** when picking from the block library).
+  3. Place it exactly as in ``placement`` (after/before the named section).
+  4. Paste the copy from the ``example`` field into the block (adjust only if the builder requires field splits).
+
+  Steps must be executable — not commentary. Use the same language as the rest of the audit (RU/EN per language policy).
+
+- **implementation_for_craftum** (full string): **first line** = **block_name** line as above; **following lines** = numbered **steps** only (plus optional short sub-bullets if the builder needs them). Do not put vague slogans here.
+
+- **example**: REQUIRED, non-empty, paste-ready text for the block (headlines, bullets, form labels, or testimonial copy as appropriate). No placeholders such as "your text here" or "…".
+
+- **expected_impact**: short practical conversion-oriented effect (e.g. higher trust, more qualified leads); no vague fluff
+
+- **confidence**: number from 0 to 1 (e.g. 0.8)
+
+- **why_now**: brief explanation why this block should be added first (sequence, urgency); do NOT repeat ``reason`` verbatim; focus on order/priority of fixes
+
+- **style_fit**: do NOT invent exact colors or fonts; recommend keeping current style; describe how to match existing design
 
 next_block.priority should usually be "high". expected_impact must be practical and conversion-oriented (example of good wording: "Повышение доверия и рост количества заявок от более тёплого трафика").
 
 confidence must be between 0 and 1. why_now must explain why this is the most urgent improvement; avoid repeating reason in why_now; why_now should focus on sequence of improvements.
 
-Avoid generic advice. Be specific and actionable.
+**BANNED vague phrases** (never use as the main advice in ``reason``, ``placement``, ``implementation_for_craftum``, or ``why_now``):
+
+* Russian: «улучшить UX», «улучшить юзабилити», «сделать лучше структуру», «оптимизировать UX», «сделать удобнее» без конкретного блока и действия, «улучшить дизайн» без привязки к блоку и тексту.
+
+* English: "improve UX", "improve usability", "better structure", "optimize UX", "make it more user-friendly" without naming a concrete block and action, "improve design" without block-level specificity.
+
+**GOOD concrete phrasing** (examples — adapt to the page):
+
+* "добавить H1 в блок hero" / "add an H1 to the hero block"
+
+* "вставить блок testimonials сразу после hero" / "insert a testimonials block right after the hero"
+
+* "добавить lead_form перед футером" / "add a lead form before the footer"
 
 CRITICAL QUALITY RULES:
 
-* Do NOT suggest generic blocks like "improve UX", "add more info", or "enhance design"
+* Do NOT suggest generic blocks like "improve UX", "add more info", or "enhance design" as the next action.
 
 * The block MUST be concrete (e.g. testimonials, faq, lead_form, pricing, guarantee)
 
@@ -385,14 +417,11 @@ CRITICAL QUALITY RULES:
   * "after services section"
   * "before final CTA"
 
-* The recommendation must be immediately actionable in Craftum
+* The recommendation must be immediately actionable in Craftum (or an equivalent visual builder).
 
-* implementation_for_craftum MUST include:
+* implementation_for_craftum MUST satisfy **block_name** first line + numbered **steps** as defined above, and MUST include which block to pick and where to put it.
 
-  * which block to select in Craftum
-  * what to configure (text, layout, fields)
-
-* Example MUST be ready to use:
+* **example** MUST be ready to use:
 
   * no placeholders
   * no "your text here"
@@ -524,12 +553,12 @@ OUTPUT FORMAT (STRICT JSON)
     "blocks_detected": ["string"],
     "missing_blocks": ["string"],
     "next_block": {
-      "type": "string",
+      "type": "string (block_type: testimonials|hero|lead_form|...)",
       "priority": "high|medium",
-      "reason": "string",
-      "placement": "string",
-      "implementation_for_craftum": "string",
-      "example": "string",
+      "reason": "string (concrete; no vague UX-only advice)",
+      "placement": "string (exact position vs existing sections)",
+      "implementation_for_craftum": "string: line1 = block_name for builder (see prompt); then lines 1. 2. 3. = Craftum steps",
+      "example": "string (REQUIRED paste-ready copy for the block)",
       "expected_impact": "string",
       "confidence": 0.8,
       "why_now": "string",
