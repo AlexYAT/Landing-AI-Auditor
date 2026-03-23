@@ -392,6 +392,57 @@ class TestWebAuditUi(unittest.TestCase):
             debug_dir=None,
         )
 
+    @patch("app.interfaces.web.save_audit_report")
+    @patch("app.interfaces.web.run_visual_audit")
+    def test_web_readable_output_visual(self, mock_run: MagicMock, _save: MagicMock) -> None:
+        mock_run.return_value = {
+            "audit_type": "visual",
+            "language": "en",
+            "overall_visual_assessment": "Good contrast",
+            "visual_issues": [
+                {
+                    "problem": "Busy hero",
+                    "why_it_matters": "Users skim",
+                    "recommendation": "Simplify",
+                    "severity": "medium",
+                }
+            ],
+        }
+        response = self.client.post(
+            "/web/audit",
+            data={
+                "url": "https://example.com",
+                "mode": "visual",
+                "preset": "general",
+                "lang": "en",
+                "output_format": "readable",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("=== VISUAL AUDIT ===", response.text)
+        self.assertIn("Overall assessment:", response.text)
+
+    @patch("app.interfaces.web.save_audit_report")
+    @patch("app.interfaces.web.run_landing_audit")
+    def test_web_readable_output_content(self, mock_run: MagicMock, _save: MagicMock) -> None:
+        rep = dict(_MINIMAL_REPORT)
+        rep["report_readable"] = build_human_report(rep)
+        mock_run.return_value = rep
+        response = self.client.post(
+            "/web/audit",
+            data={
+                "url": "https://example.com",
+                "mode": "content",
+                "preset": "general",
+                "lang": "en",
+                "output_format": "readable",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("# Summary", response.text)
+        self.assertIn("ok", response.text)
+        self.assertNotIn('"overall_assessment"', response.text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -19,7 +19,8 @@ from app.services.analyzer import AnalyzerError
 from app.services.audit_pipeline import run_landing_audit, run_visual_audit
 from app.services.audit_storage import save_audit_report
 from app.services.parser import ParsingError
-from app.services.report_builder import build_human_report, format_visual_audit_readable
+from app.services.report_builder import format_visual_audit_readable
+from main import _build_readable_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -30,17 +31,14 @@ web_router = APIRouter(prefix="/web", tags=["web"])
 _PRESET_OPTIONS = ("general", "services", "expert", "course", "leadgen", "craftum")
 
 
-def _format_web_result(report: dict[str, Any], output_format: str, lang: str) -> str:
-    """Pretty text for <pre>: JSON or readable-ish structure."""
+def _format_web_result(report: dict[str, Any], output_format: str, lang: str, mode: str) -> str:
+    """String for ``<pre>``: full JSON, or plain text (same as CLI ``--output-format readable``)."""
     code = lang if lang in ("ru", "en") else "ru"
     if output_format != "readable":
         return json.dumps(report, ensure_ascii=False, indent=2)
-    if report.get("audit_type") == "visual":
+    if mode == "visual":
         return format_visual_audit_readable(report, code)
-    rr = report.get("report_readable")
-    if not isinstance(rr, dict):
-        rr = build_human_report(report)
-    return json.dumps(rr, ensure_ascii=False, indent=2)
+    return _build_readable_markdown(report)
 
 
 def _run_pipeline(url: str, mode: str, preset: str, lang_code: str) -> dict[str, Any]:
@@ -164,7 +162,7 @@ def web_audit_submit(
     except OSError as exc:
         logger.warning("Could not persist web UI audit snapshot: %s", exc)
 
-    result_text = _format_web_result(report, form["output_format"], form["lang"])
+    result_text = _format_web_result(report, form["output_format"], form["lang"], form["mode"])
     return templates.TemplateResponse(
         request,
         "web_index.html",
