@@ -160,6 +160,10 @@ def _build_readable_markdown(report: dict[str, Any]) -> str:
         if i > 0:
             parts.append("")
         parts.append(block)
+    if str(report.get("preset", "")).lower() == "craftum":
+        csec = (rr.get("craftum_block_plan_section") or "").strip()
+        if csec:
+            parts.extend(["", csec])
     parts.extend(["", "# Quick Wins"])
     for item in rr.get("quick_wins") or []:
         parts.append(_format_quick_win_line(item))
@@ -226,6 +230,11 @@ def _print_readable_console(report: dict[str, Any]) -> None:
         if i > 0:
             print()
         print(block)
+    if str(report.get("preset", "")).lower() == "craftum":
+        csec = (rr.get("craftum_block_plan_section") or "").strip()
+        if csec:
+            print()
+            print(csec)
     print()
     print("=== QUICK WINS ===")
     for item in rr.get("quick_wins") or []:

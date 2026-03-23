@@ -14,6 +14,7 @@ from app.core.models import (
     AuditResult,
     AuditSummary,
     ContentRewrite,
+    CraftumBlockPlan,
     QuickWin,
     Recommendation,
 )
@@ -191,6 +192,34 @@ def _normalize_block_analysis(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _normalize_craftum_block_plan(data: dict[str, Any]) -> list[CraftumBlockPlan]:
+    """Parse ``craftum_block_plan`` from model JSON; empty when missing or invalid."""
+    raw = data.get("craftum_block_plan")
+    if not isinstance(raw, list):
+        return []
+    out: list[CraftumBlockPlan] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        fr = item.get("fields")
+        if isinstance(fr, list):
+            fields = [_as_str(x) for x in fr if _as_str(x)]
+        else:
+            fields = []
+        out.append(
+            CraftumBlockPlan(
+                block_type=_as_str(item.get("block_type")),
+                goal=_as_str(item.get("goal")),
+                placement=_as_str(item.get("placement")),
+                fields=fields,
+                content_example=_as_str(item.get("content_example")),
+                style_guidance=_as_str(item.get("style_guidance")),
+                validation_check=_as_str(item.get("validation_check")),
+            )
+        )
+    return out
+
+
 def _normalize_action_roadmap(data: dict[str, Any]) -> list[dict[str, Any]]:
     """Parse top-level ``action_roadmap`` (max 3 steps); safe when missing or invalid."""
     raw = data.get("action_roadmap")
@@ -301,6 +330,7 @@ def validate_and_normalize_audit_result(
     rewrite_texts = _normalize_rewrite_texts(data)
     block_analysis = _normalize_block_analysis(data)
     action_roadmap = _normalize_action_roadmap(data)
+    craftum_block_plan = _normalize_craftum_block_plan(data)
 
     return AuditResult(
         summary=summary,
@@ -311,6 +341,7 @@ def validate_and_normalize_audit_result(
         rewrite_texts=rewrite_texts,
         block_analysis=block_analysis,
         action_roadmap=action_roadmap,
+        craftum_block_plan=craftum_block_plan,
     )
 
 

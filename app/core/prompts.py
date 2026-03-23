@@ -635,9 +635,49 @@ For **NEXT ACTION** with craftum preset, ``implementation_for_craftum`` **must**
 """.strip()
 
 
+_CRAFTUM_BLOCK_PLANNER_ADDON_RU = """
+### CRAFTUM BLOCK PLANNER (структурированный JSON)
+
+Помимо существующих полей ответа добавь **верхнеуровневый** ключ ``craftum_block_plan`` (массив объектов). Это **дополнение** к ``recommendations``, не замена: старые массивы и ``block_analysis`` остаются как есть.
+
+Каждый элемент ``craftum_block_plan[]``:
+- ``block_type`` (string): тип/название блока (например ``testimonials``, ``faq``, ``lead_form`` или «Отзывы», «FAQ»).
+- ``goal`` (string): зачем этот блок для конверсии (кратко, по делу).
+- ``placement`` (string): куда вставить относительно текущей структуры (например «сразу после hero», «между описанием метода и формой заявки», «перед финальным CTA»).
+- ``fields`` (array of strings): какие поля/элементы заполнить в редакторе (например «Заголовок секции», «Текст отзыва», «Имя»).
+- ``content_example`` (string): короткий конкретный пример текста/заполнения.
+- ``style_guidance`` (string): общие рекомендации по стилю и тону, согласованность с страницей; **без** пикселей, CSS, hex-кодов и микроразметки.
+- ``validation_check`` (string): как проверить, что блок добавлен удачно.
+
+Размер массива: **2–5** элементов. Приоритет — высокоуровневые, выполнимые в конструкторе шаги (отзывы, кейсы, FAQ, повторный CTA, «как проходит услуга», «обо мне / доверие»). Запрещены советы уровня «сдвинь элемент на N px».
+""".strip()
+
+_CRAFTUM_BLOCK_PLANNER_ADDON_EN = """
+### CRAFTUM BLOCK PLANNER (structured JSON)
+
+In addition to existing response fields, include a **top-level** key ``craftum_block_plan`` (array of objects). This **extends** ``recommendations``; it does not replace them — keep ``recommendations`` and ``block_analysis`` as required elsewhere.
+
+Each ``craftum_block_plan[]`` item:
+- ``block_type`` (string): block id/name (e.g. ``testimonials``, ``faq``, ``lead_form``, or a human label like "Reviews").
+- ``goal`` (string): why this block helps conversion (brief, concrete).
+- ``placement`` (string): where to insert vs current structure (e.g. "right after hero", "between method description and lead form", "before final CTA").
+- ``fields`` (array of strings): which fields/elements to fill in the editor.
+- ``content_example`` (string): short concrete sample copy.
+- ``style_guidance`` (string): tone/style alignment with the page; **no** pixels, CSS, or hex codes.
+- ``validation_check`` (string): how to verify the block is implemented well.
+
+Array length: **2–5** items. Prefer high-level builder actions (reviews, cases, FAQ, repeat CTA, service steps, about/trust). Do not give "move by N px" advice.
+""".strip()
+
+
 def _craftum_mode_section(lang: str) -> str:
     code = normalize_lang(lang)
     return _CRAFTUM_MODE_RU if code == "ru" else _CRAFTUM_MODE_EN
+
+
+def _craftum_block_planner_section(lang: str) -> str:
+    code = normalize_lang(lang)
+    return _CRAFTUM_BLOCK_PLANNER_ADDON_RU if code == "ru" else _CRAFTUM_BLOCK_PLANNER_ADDON_EN
 
 
 def build_task_context(sanitized_user_task: str | None, lang: str) -> str:
@@ -679,6 +719,7 @@ def build_system_prompt(
         parts.extend(["", preset_section_title(lang), preset_addon])
     if normalize_preset(preset) == "craftum":
         parts.extend(["", _craftum_mode_section(lang)])
+        parts.extend(["", _craftum_block_planner_section(lang)])
     if rewrite_targets:
         normalized = _rewrite_targets_normalized(rewrite_targets)
         normalized = tuple(t for t in normalized if t in ALLOWED_REWRITE_TARGETS)

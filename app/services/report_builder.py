@@ -8,6 +8,31 @@ from app.core.lang import normalize_lang
 
 _REWRITE_KEYS = ("hero", "cta", "trust")
 
+_CRAFTUM_PLAN_LABELS = {
+    "ru": {
+        "title": "Рекомендуемые блоки для добавления",
+        "block_type": "Тип блока",
+        "goal": "Зачем",
+        "placement": "Куда вставить",
+        "fields": "Что заполнить",
+        "content_example": "Пример",
+        "style_guidance": "Стиль (общие указания, без пикселей)",
+        "validation_check": "Как проверить",
+        "empty": "(В ответе нет элементов craftum_block_plan.)",
+    },
+    "en": {
+        "title": "Suggested blocks to add",
+        "block_type": "Block type",
+        "goal": "Why",
+        "placement": "Where to insert",
+        "fields": "What to fill in",
+        "content_example": "Example",
+        "style_guidance": "Style (high-level, no pixels)",
+        "validation_check": "How to verify",
+        "empty": "(No craftum_block_plan items in the response.)",
+    },
+}
+
 
 def _txt(v: Any) -> str:
     if v is None:
@@ -155,6 +180,80 @@ def _format_action_roadmap_readable(steps: list[dict[str, Any]]) -> str:
     return "\n".join(lines).rstrip()
 
 
+def _craftum_block_plan_items(report: dict) -> list[dict[str, Any]]:
+    """Normalized list of craftum block planner rows from report dict."""
+    raw = report.get("craftum_block_plan")
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        fr = item.get("fields")
+        if isinstance(fr, list):
+            fields = [_txt(x) for x in fr if _txt(x)]
+        else:
+            fields = []
+        out.append(
+            {
+                "block_type": _txt(item.get("block_type")),
+                "goal": _txt(item.get("goal")),
+                "placement": _txt(item.get("placement")),
+                "fields": fields,
+                "content_example": _txt(item.get("content_example")),
+                "style_guidance": _txt(item.get("style_guidance")),
+                "validation_check": _txt(item.get("validation_check")),
+            }
+        )
+    return out
+
+
+def _format_craftum_block_plan_readable(report: dict) -> str:
+    """Plain-text section for CLI / markdown (Craftum Block Planner)."""
+    code = normalize_lang(report.get("language"))
+    L = _CRAFTUM_PLAN_LABELS.get(code, _CRAFTUM_PLAN_LABELS["en"])
+    items = _craftum_block_plan_items(report)
+    if not items:
+        return ""
+    blocks: list[str] = []
+    for idx, b in enumerate(items, start=1):
+        parts: list[str] = [f"### {idx}."]
+        bt = b.get("block_type") or "—"
+        parts.append(f"{L['block_type']}:\n{bt}")
+        if b.get("goal"):
+            parts.append(f"{L['goal']}:\n{b['goal']}")
+        if b.get("placement"):
+            parts.append(f"{L['placement']}:\n{b['placement']}")
+        flds = b.get("fields") or []
+        if flds:
+            lines = "\n".join(f"* {line}" for line in flds)
+            parts.append(f"{L['fields']}:\n{lines}")
+        if b.get("content_example"):
+            parts.append(f"{L['content_example']}:\n{b['content_example']}")
+        if b.get("style_guidance"):
+            parts.append(f"{L['style_guidance']}:\n{b['style_guidance']}")
+        if b.get("validation_check"):
+            parts.append(f"{L['validation_check']}:\n{b['validation_check']}")
+        blocks.append("\n\n".join(parts))
+    return f"{L['title']}\n\n" + "\n\n---\n\n".join(blocks)
+
+
+def craftum_block_plan_section_for_preset(report: dict) -> str:
+    """
+    Readable Craftum Block Planner section when preset is craftum: data or empty notice.
+
+    For non-craftum presets returns empty string (callers should not print a heading).
+    """
+    if str(report.get("preset", "")).lower() != "craftum":
+        return ""
+    code = normalize_lang(report.get("language"))
+    L = _CRAFTUM_PLAN_LABELS.get(code, _CRAFTUM_PLAN_LABELS["en"])
+    body = _format_craftum_block_plan_readable(report)
+    if body.strip():
+        return body
+    return f"{L['title']}\n\n{L['empty']}"
+
+
 def _normalize_rewrite_texts_readable(report: dict) -> dict[str, str]:
     """Hero/cta/trust strings for human-readable views; safe when missing or malformed."""
     raw = report.get("rewrite_texts")
@@ -283,6 +382,7 @@ def build_human_report(report: dict) -> dict:
     ar_steps = _build_action_roadmap_steps(report)
     action_roadmap_readable = _format_action_roadmap_readable(ar_steps)
 
+    cbi = _craftum_block_plan_items(report)
     return {
         "summary": raw_summary,
         "issues_readable": issues_readable,
@@ -293,4 +393,7 @@ def build_human_report(report: dict) -> dict:
         "next_action_readable": next_action_readable,
         "action_roadmap_steps": ar_steps,
         "action_roadmap_readable": action_roadmap_readable,
+        "craftum_block_plan_items": cbi,
+        "craftum_block_plan_readable": _format_craftum_block_plan_readable(report),
+        "craftum_block_plan_section": craftum_block_plan_section_for_preset(report),
     }

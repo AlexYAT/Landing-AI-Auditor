@@ -47,6 +47,9 @@ class TestBuildHumanReport(unittest.TestCase):
         self.assertEqual(rr["next_action_readable"], "")
         self.assertEqual(rr["action_roadmap_steps"], [])
         self.assertEqual(rr["action_roadmap_readable"], "")
+        self.assertEqual(rr["craftum_block_plan_items"], [])
+        self.assertEqual(rr["craftum_block_plan_readable"], "")
+        self.assertEqual(rr["craftum_block_plan_section"], "")
         bar = rr["block_analysis_readable"]
         self.assertEqual(bar["missing_blocks"], [])
         self.assertEqual(

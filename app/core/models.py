@@ -99,6 +99,23 @@ class QuickWin:
 
 
 @dataclass
+class CraftumBlockPlan:
+    """
+    Structured Craftum Block Planner row: what to add, where, fill, verify.
+
+    Separate from ``Recommendation`` — additive planner view for craftum preset.
+    """
+
+    block_type: str = ""
+    goal: str = ""
+    placement: str = ""
+    fields: list[str] = field(default_factory=list)
+    content_example: str = ""
+    style_guidance: str = ""
+    validation_check: str = ""
+
+
+@dataclass
 class ContentRewrite:
     """Generated rewrite for a page block (e.g. hero)."""
 
@@ -159,6 +176,7 @@ class AuditResult:
     rewrite_texts: dict[str, str] = field(default_factory=_default_rewrite_texts)
     block_analysis: dict[str, Any] = field(default_factory=_default_block_analysis)
     action_roadmap: list[dict[str, Any]] = field(default_factory=list)
+    craftum_block_plan: list[CraftumBlockPlan] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert model to dictionary."""
