@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Аудит лендинга</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 56rem; margin: 1rem auto; padding: 0 1rem; }
+    label { display: block; margin-top: 0.75rem; font-weight: 600; }
+    input[type="url"], select { width: 100%; max-width: 32rem; padding: 0.35rem; margin-top: 0.25rem; }
+    button { margin-top: 1rem; padding: 0.5rem 1rem; }
+    pre { background: #f4f4f4; padding: 1rem; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+    .err { color: #a00; }
+    .preset-wrap.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h1>Аудит лендинга</h1>
+  <form method="post" action="/web/audit" id="audit-form">
+    <label>URL
+      <input type="url" name="url" required placeholder="https://example.com" value="{{ form.url }}" />
+    </label>
+    <label>Режим
+      <select name="mode" id="mode">
+        <option value="content" {% if form.mode == 'content' %}selected{% endif %}>content</option>
+        <option value="craftum" {% if form.mode == 'craftum' %}selected{% endif %}>craftum</option>
+        <option value="visual" {% if form.mode == 'visual' %}selected{% endif %}>visual</option>
+      </select>
+    </label>
+    <div class="preset-wrap {% if form.mode == 'visual' %}hidden{% endif %}" id="preset-wrap">
+      <label>Пресет
+        <select name="preset" id="preset">
+          {% for p in ['general', 'services', 'expert', 'course', 'leadgen', 'craftum'] %}
+          <option value="{{ p }}" {% if form.preset == p %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <label>Язык
+      <select name="lang">
+        <option value="ru" {% if form.lang == 'ru' %}selected{% endif %}>ru</option>
+        <option value="en" {% if form.lang == 'en' %}selected{% endif %}>en</option>
+      </select>
+    </label>
+    <label>Формат вывода
+      <select name="output_format">
+        <option value="json" {% if form.output_format == 'json' %}selected{% endif %}>json</option>
+        <option value="readable" {% if form.output_format == 'readable' %}selected{% endif %}>readable</option>
+      </select>
+    </label>
+    <button type="submit">Запустить аудит</button>
+  </form>
+  {% if error %}
+  <p class="err">{{ error }}</p>
+  {% endif %}
+  {% if result is not none %}
+  <h2>Результат</h2>
+  <pre>{{ result|safe }}</pre>
+  {% endif %}
+  <script>
+    (function () {
+      var mode = document.getElementById('mode');
+      var wrap = document.getElementById('preset-wrap');
+      function sync() {
+        if (mode.value === 'visual') {
+          wrap.classList.add('hidden');
+        } else {
+          wrap.classList.remove('hidden');
+        }
+      }
+      mode.addEventListener('change', sync);
+      sync();
+    })();
+  </script>
+</body>
+</html>

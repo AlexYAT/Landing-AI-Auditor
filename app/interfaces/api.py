@@ -21,6 +21,7 @@ from app.core.lang import SUPPORTED_LANGS, SUPPORTED_LANGS_API_ORDER, resolve_ef
 from app.core import paths
 from app.core.presets import PRESETS_API_ORDER
 from app.core.rewrite_targets import REWRITE_TARGETS_API_ORDER
+from app.interfaces.web import web_router
 from app.providers.llm import LlmProviderError
 from app.services.analyzer import AnalyzerError
 from app.services.audit_pipeline import run_landing_audit
@@ -135,6 +136,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(web_router)
 
 
 class HealthResponse(BaseModel):

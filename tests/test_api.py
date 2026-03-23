@@ -6,7 +6,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 from fastapi.testclient import TestClient
 from starlette.middleware.cors import CORSMiddleware
@@ -332,6 +332,65 @@ class TestAuditEndpoint(unittest.TestCase):
             json={"url": "https://example.com", "preset": "unknown"},
         )
         self.assertEqual(response.status_code, 422)
+
+
+class TestWebAuditUi(unittest.TestCase):
+    """Minimal web UI at /web/ (form + POST /web/audit)."""
+
+    def setUp(self) -> None:
+        self.client = TestClient(app)
+
+    def test_get_web_form_returns_200(self) -> None:
+        response = self.client.get("/web/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/html", response.headers.get("content-type", ""))
+        self.assertIn("Запустить аудит", response.text)
+        self.assertIn('name="url"', response.text)
+
+    @patch("app.interfaces.web.save_audit_report")
+    @patch("app.interfaces.web.run_landing_audit")
+    def test_post_web_audit_content_mode(self, mock_run: MagicMock, _save: MagicMock) -> None:
+        rep = dict(_MINIMAL_REPORT)
+        rep["report_readable"] = build_human_report(rep)
+        mock_run.return_value = rep
+        response = self.client.post(
+            "/web/audit",
+            data={
+                "url": "https://example.com",
+                "mode": "content",
+                "preset": "general",
+                "lang": "ru",
+                "output_format": "json",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Результат", response.text)
+        self.assertIn('"overall_assessment"', response.text)
+        mock_run.assert_called_once()
+        self.assertEqual(mock_run.call_args.kwargs["preset"], "general")
+
+    @patch("app.interfaces.web.save_audit_report")
+    @patch("app.interfaces.web.run_visual_audit")
+    def test_post_web_audit_visual_mode(self, mock_run: MagicMock, _save: MagicMock) -> None:
+        mock_run.return_value = {"audit_type": "visual", "summary": {"note": "ok"}}
+        response = self.client.post(
+            "/web/audit",
+            data={
+                "url": "https://example.com/page",
+                "mode": "visual",
+                "preset": "general",
+                "lang": "en",
+                "output_format": "json",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Результат", response.text)
+        mock_run.assert_called_once_with(
+            "https://example.com/page",
+            settings=ANY,
+            effective_lang="en",
+            debug_dir=None,
+        )
 
 
 if __name__ == "__main__":
