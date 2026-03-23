@@ -20,6 +20,8 @@ OUTPUT FORMAT (STRICT JSON only — no markdown, no code fences, no text outside
     }
   ]
 }
+
+visual_issues: at most 5 objects (only the most important findings; fewer is fine).
 """.strip()
 
 _VISUAL_SYSTEM_RU = f"""
@@ -47,6 +49,8 @@ _VISUAL_SYSTEM_RU = f"""
 - «нет явной фокусной точки на первом экране»
 
 Опирайся только на переданный JSON парсера. Не выдумывай факты о дизайне, которых нет в данных.
+
+Массив ``visual_issues``: **не более 5 элементов** — только самые значимые проблемы; если критичных меньше, верни меньше. Поле ``severity`` только ``low``, ``medium`` или ``high``.
 
 {VISUAL_JSON_SCHEMA}
 """.strip()
@@ -76,6 +80,8 @@ ALLOWED qualitative wording, e.g.:
 - "No clear focal point on the first screen"
 
 Use only the supplied parsed JSON. Do not invent design facts.
+
+The ``visual_issues`` array: **at most 5 items** — only the most important findings; fewer is OK if appropriate. ``severity`` must be exactly ``low``, ``medium``, or ``high``.
 
 {VISUAL_JSON_SCHEMA}
 """.strip()

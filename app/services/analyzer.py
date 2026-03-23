@@ -36,6 +36,32 @@ ALLOWED_REWRITE_BLOCKS = ALLOWED_REWRITE_TARGETS
 ALLOWED_NEXT_BLOCK_PRIORITY = frozenset({"high", "medium"})
 ALLOWED_EFFORT = frozenset({"low", "medium", "high"})
 ALLOWED_VISUAL_SEVERITIES = frozenset({"low", "medium", "high"})
+MAX_VISUAL_ISSUES = 5
+_VISUAL_SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
+# Non-standard model output → canonical severity (case/spaces ignored in ``_normalize_visual_severity``).
+_VISUAL_SEVERITY_HIGH_ALIASES = frozenset(
+    {
+        "critical",
+        "severe",
+        "urgent",
+        "blocker",
+        "highest",
+        "major",
+        "catastrophic",
+        "danger",
+    }
+)
+_VISUAL_SEVERITY_LOW_ALIASES = frozenset(
+    {
+        "minor",
+        "trivial",
+        "info",
+        "informational",
+        "lowest",
+        "nicetohave",
+        "nice-to-have",
+    }
+)
 
 
 def _as_list(data: Any) -> list[Any]:
@@ -252,6 +278,34 @@ def _normalize_action_roadmap(data: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
+def _normalize_visual_severity(value: Any) -> str:
+    """
+    Map model severity to ``low`` | ``medium`` | ``high``.
+
+    Ignores case and whitespace between characters. Unknown tokens default to ``medium``;
+    common synonyms map to high/low.
+    """
+    if value is None:
+        return "medium"
+    s = "".join(str(value).split()).lower()
+    if not s:
+        return "medium"
+    if s in ALLOWED_VISUAL_SEVERITIES:
+        return s
+    if s in _VISUAL_SEVERITY_HIGH_ALIASES:
+        return "high"
+    if s in _VISUAL_SEVERITY_LOW_ALIASES:
+        return "low"
+    if s in ("normal", "moderate", "negligible", "average", "avg", "med"):
+        return "medium"
+    return "medium"
+
+
+def _sort_visual_issues_by_severity(issues: list[VisualIssue]) -> list[VisualIssue]:
+    """Stable sort: high → medium → low (ties keep input order)."""
+    return sorted(issues, key=lambda x: _VISUAL_SEVERITY_ORDER.get(x.severity, 1))
+
+
 def validate_and_normalize_visual_audit(data: dict[str, Any], lang: str = DEFAULT_LANG) -> VisualAuditResult:
     """Normalize visual-audit JSON from the model; empty or invalid ``visual_issues`` → []."""
     _ = normalize_lang(lang)
@@ -260,7 +314,7 @@ def validate_and_normalize_visual_audit(data: dict[str, Any], lang: str = DEFAUL
     for item in _as_list(data.get("visual_issues")):
         if not isinstance(item, dict):
             continue
-        sev = _normalize_choice(_as_str(item.get("severity")), ALLOWED_VISUAL_SEVERITIES, "medium")
+        sev = _normalize_visual_severity(item.get("severity"))
         issues.append(
             VisualIssue(
                 problem=_as_str(item.get("problem")),
@@ -269,6 +323,9 @@ def validate_and_normalize_visual_audit(data: dict[str, Any], lang: str = DEFAUL
                 severity=sev,
             )
         )
+    if len(issues) > MAX_VISUAL_ISSUES:
+        issues = issues[:MAX_VISUAL_ISSUES]
+    issues = _sort_visual_issues_by_severity(issues)
     return VisualAuditResult(overall_visual_assessment=overall, visual_issues=issues)
 
 
