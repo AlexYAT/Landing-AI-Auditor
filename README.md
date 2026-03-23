@@ -1,10 +1,25 @@
 # Landing AI Auditor (v1)
 
-CLI tool for conversion-focused landing page audits. Can be used as:
+Инструмент для **конверсионного аудита лендингов** по данным, которые извлекает парсер (текст, заголовки, CTA, формы и т.д.).
+
+- **Общий аудит** — полный CRO-отчёт (оффер, CTA, доверие, структура, трение и др.) в JSON и/или человекочитаемом виде.
+- **Пресеты** — фокус анализа под тип страницы (`general`, услуги, эксперт, курс, лидген и т.д.).
+- **Пресет `craftum`** — отчёт ориентирован на ручное внедрение в конструкторе Craftum: помимо стандартных рекомендаций модель заполняет **Craftum Block Planner** — структурированный блок рекомендуемых секций для добавления (куда вставить, что заполнить, как проверить). Обычный аудит для других пресетов не меняется.
+
+CLI и опционально **HTTP API (FastAPI)**. Режимы использования:
+
 - **Assignment mode** — учебное задание «Агент: Подсказки по редизайну лендинга»: принимает URL, выводит 5 рекомендаций
-- **Full audit mode** — расширенный JSON-отчет для production-аудита
+- **Full audit mode** — расширенный JSON-отчёт (и при необходимости readable-вывод) для production-аудита
 
 **Stack:** Python ≥ 3.10, requests, beautifulsoup4, openai, tenacity, python-dotenv; опционально **FastAPI + Uvicorn** для HTTP API.
+
+## Capabilities (кратко)
+
+- Аудит: ясность оффера, CTA, доверие, структура, трение, формы и связанные темы (в рамках текстовых данных парсера).
+- Поддержка пресетов (`--preset`) и task-aware анализа (`--task`).
+- Пресет **`craftum`**: режим Craftum + **Craftum Block Planner** (`craftum_block_plan` в JSON).
+- Вывод: **JSON** (полный отчёт) и **`--output-format readable`** (текстовый отчёт в консоли; при `--save-report` — markdown-подобный файл).
+- Запуск из **CLI** (`python main.py`) и через **API** (`POST /audit`).
 
 ## Language (`--lang`)
 
@@ -58,12 +73,14 @@ python main.py --url https://site.com --task "усилить доверие"
 | `expert` | Экспертность, авторитет, дифференциация |
 | `course` | Обучение: результаты, структура, возражения, ценность vs цена |
 | `leadgen` | Максимум конверсии, минимум трения, сильный CTA, короткий путь |
+| `craftum` | Внедрение в конструкторе Craftum: практические шаги + **Craftum Block Planner** (`craftum_block_plan`) |
 
 В JSON-отчёте (full mode и API) в корне добавляется поле **`preset`** — какой пресет фактически применён.
 
 ```bash
 python main.py --url "https://example.com" --preset services
 python main.py --url "https://example.com" --preset expert --lang en
+python main.py --url "https://example.com" --preset craftum --output-format readable
 ```
 
 ## Rewrite (`--rewrite`)
@@ -126,6 +143,19 @@ python main.py --url "https://example.com" --task "Improve conversion"
 python main.py --url "https://example.com" --task "Check CTA" --output output/report.json --verbose
 ```
 
+Человекочитаемый вывод в консоль (вместо сырого JSON в stdout):
+
+```bash
+python main.py --url "https://example.com" --output-format readable
+python main.py --url "https://example.com" --preset craftum --output-format readable
+```
+
+Сохранить отчёт в файл в том же формате, что и консольный вывод (`json` или readable):
+
+```bash
+python main.py --url "https://example.com" --save-report report.md --output-format readable
+```
+
 ### Debug (`--debug`)
 
 Для диагностики **декодирования и извлечения текста** (ложные срабатывания про «кодировку»):
@@ -138,7 +168,7 @@ python main.py --url "https://example.com" --output output/report.json --debug
 
 ### Пример JSON
 
-Full mode добавляет поля `language` (effective lang) и `preset` в JSON:
+Full mode добавляет поля `language` (effective lang) и `preset` в JSON. Структура отчёта общая для пресетов; для **`preset=craftum`** дополнительно заполняется массив **`craftum_block_plan`** (Craftum Block Planner) — не заменяет `recommendations`, а даёт структурированный план блоков для добавления в конструкторе.
 
 ```json
 {
@@ -155,6 +185,24 @@ Full mode добавляет поля `language` (effective lang) и `preset` в
   "quick_wins": [...]
 }
 ```
+
+У **`preset=craftum`** в корне JSON (и в сохранённом файле `--output`) есть, например:
+
+```json
+"craftum_block_plan": [
+  {
+    "block_type": "Отзывы",
+    "goal": "Снять сомнения перед заявкой",
+    "placement": "сразу после hero",
+    "fields": ["Заголовок секции", "Имя", "Текст отзыва"],
+    "content_example": "Марина: стало проще справляться с тревогой после первой сессии.",
+    "style_guidance": "Тон спокойный, как в остальных текстах страницы; без пиксельных и CSS-советов.",
+    "validation_check": "Под первым экраном видны минимум два отзыва с именами."
+  }
+]
+```
+
+При **`--output-format readable`** (или `--save-report` с тем же форматом) для `preset=craftum` в текст добавляется секция **«Рекомендуемые блоки для добавления»** (содержимое из `craftum_block_plan`). Если массив пуст, в этой секции будет краткое пояснение; для других пресетов отдельная секция не выводится.
 
 ## Installation
 
@@ -207,7 +255,7 @@ curl -s http://127.0.0.1:8000/health
 curl -s http://127.0.0.1:8000/meta/capabilities
 ```
 
-Пример фрагмента ответа: `"presets":["general","services","expert","course","leadgen"]`.
+Пример фрагмента ответа: `"presets":["general","services","expert","course","leadgen","craftum"]`.
 
 **Аудит (`POST /audit`):**
 
@@ -215,7 +263,13 @@ curl -s http://127.0.0.1:8000/meta/capabilities
 curl -s -X POST http://127.0.0.1:8000/audit -H "Content-Type: application/json" -d "{\"url\":\"https://example.com\",\"task\":\"Increase signups\",\"lang\":\"en\",\"preset\":\"services\",\"rewrite\":[\"hero\",\"cta\"],\"debug\":false}"
 ```
 
-Тело JSON: `url` (обязателен), опционально `task`, `lang` (только `ru` или `en`; иначе `422`), `preset` (один из `general` \| `services` \| `expert` \| `course` \| `leadgen`; по умолчанию `general`; неверное значение → `422`), `rewrite` (массив из `hero` \| `cta` \| `trust`; пустой массив `[]` — как без переписи), `debug` (по умолчанию `false`). Ответ — тот же объект, что и в full mode CLI (включая `rewrites`, `language`, `preset`).
+С пресетом Craftum (в ответе может быть `craftum_block_plan`):
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/audit -H "Content-Type: application/json" -d "{\"url\":\"https://example.com\",\"lang\":\"ru\",\"preset\":\"craftum\"}"
+```
+
+Тело JSON: `url` (обязателен), опционально `task`, `lang` (только `ru` или `en`; иначе `422`), `preset` (один из `general` \| `services` \| `expert` \| `course` \| `leadgen` \| **`craftum`**; по умолчанию `general`; неверное значение → `422`), `rewrite` (массив из `hero` \| `cta` \| `trust`; пустой массив `[]` — как без переписи), `debug` (по умолчанию `false`). Ответ — тот же объект, что и в full mode CLI (включая `rewrites`, `language`, `preset`; при `preset=craftum` — **`craftum_block_plan`** при наличии в ответе модели).
 
 Ошибки домена: `400` (парсинг/загрузка), `502` (LLM), `500` (анализ/внутренняя). Тело ошибки — плоский JSON: `{"error":"<code>","message":"<text>"}` (без обёртки `detail`).
 
@@ -227,23 +281,23 @@ curl -s -X POST http://127.0.0.1:8000/audit -H "Content-Type: application/json" 
 
 - `parser` — fetch и парсинг HTML через requests + BeautifulSoup
 - `audit_pipeline` — общий сценарий parse + LLM для CLI и API
-- `analyzer` — валидация и нормализация LLM-ответа
+- `analyzer` — валидация и нормализация LLM-ответа (в т.ч. `craftum_block_plan` для craftum)
 - `llm provider` — вызов OpenAI, извлечение JSON
 - `exporter` — сохранение JSON (full mode)
+- `report_builder` — человекочитаемое представление (включая секцию рекомендуемых блоков для `preset=craftum`)
 - `assignment_formatter` — 5 строк рекомендаций (assignment mode)
 - `interfaces/api` — минимальный FastAPI (`GET /health`, `GET /meta/capabilities`, `POST /audit`, CORS)
 - `core/lang` — нормализация кода языка (`normalize_lang`)
 - `core/user_task` — санитизация `user_task` (`sanitize_user_task`)
-- `core/prompts` — `build_task_context`, языковые правила и защита от injection в system prompt
+- `core/prompts` — `build_task_context`, языковые правила и защита от injection в system prompt; для `craftum` — блоки CRAFTUM MODE и Craftum Block Planner
 - `core/presets` — допустимые пресеты и `build_preset_addon` для фокуса аудита
 
 ## Limitations v1
 
 - HTML snapshot only (no JS rendering)
-- No visual layout analysis
+- Нет анализа визуальной вёрстки и скриншотов (планируется отдельно, не часть текущего v1)
 
 ## Roadmap
 
 - UI
-- screenshot analysis
-- device emulation
+- Визуальный / screenshot-анализ и смежные задачи — за пределами текущего текстового аудита; при появлении будут описаны отдельно
