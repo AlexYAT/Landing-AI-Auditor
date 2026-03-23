@@ -346,6 +346,9 @@ class TestWebAuditUi(unittest.TestCase):
         self.assertIn("text/html", response.headers.get("content-type", ""))
         self.assertIn("Запустить аудит", response.text)
         self.assertIn('name="url"', response.text)
+        self.assertIn('name="output_format"', response.text)
+        self.assertIn('option value="readable" selected', response.text.replace("\n", " "))
+        self.assertNotIn('option value="json" selected', response.text.replace("\n", " "))
 
     @patch("app.interfaces.web.save_audit_report")
     @patch("app.interfaces.web.run_landing_audit")

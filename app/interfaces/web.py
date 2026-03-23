@@ -73,7 +73,7 @@ def _default_form() -> dict[str, str]:
         "mode": "content",
         "preset": "general",
         "lang": "ru",
-        "output_format": "json",
+        "output_format": "readable",
     }
 
 
@@ -93,14 +93,14 @@ def web_audit_submit(
     mode: str = Form("content"),
     preset: str = Form("general"),
     lang: str = Form("ru"),
-    output_format: str = Form("json"),
+    output_format: str = Form("readable"),
 ) -> Any:
     form = {
         "url": url.strip(),
         "mode": (mode or "content").strip().lower(),
         "preset": (preset or "general").strip().lower(),
         "lang": (lang or "ru").strip().lower(),
-        "output_format": output_format if output_format in ("json", "readable") else "json",
+        "output_format": output_format if output_format in ("json", "readable") else "readable",
     }
     if not form["url"]:
         return templates.TemplateResponse(

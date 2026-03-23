@@ -5,58 +5,222 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Аудит лендинга</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 56rem; margin: 1rem auto; padding: 0 1rem; }
-    label { display: block; margin-top: 0.75rem; font-weight: 600; }
-    input[type="url"], select { width: 100%; max-width: 32rem; padding: 0.35rem; margin-top: 0.25rem; }
-    button { margin-top: 1rem; padding: 0.5rem 1rem; }
-    pre { background: #f4f4f4; padding: 1rem; overflow: auto; white-space: pre-wrap; word-break: break-word; }
-    .err { color: #a00; }
+    :root {
+      --text: #1a1a1a;
+      --muted: #5c5c5c;
+      --border: #d8dce3;
+      --surface: #f6f7f9;
+      --card-bg: #fff;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: var(--text);
+      line-height: 1.45;
+      background: #f0f2f5;
+    }
+    .page {
+      max-width: 40rem;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 2.5rem;
+    }
+    .page-header {
+      margin-bottom: 1.5rem;
+    }
+    .page-header h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.5rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+    .page-header p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.35rem;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+    .form-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: minmax(7.5rem, 9.5rem) 1fr;
+      gap: 0.5rem 1rem;
+      align-items: start;
+    }
+    .form-row label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding-top: 0.42rem;
+      color: #333;
+    }
+    .form-field {
+      min-width: 0;
+    }
+    .form-field input[type="url"],
+    .form-field select {
+      width: 100%;
+      max-width: 100%;
+      padding: 0.45rem 0.55rem;
+      font-size: 0.95rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fff;
+    }
+    .form-field input:focus,
+    .form-field select:focus {
+      outline: 2px solid rgba(37, 99, 235, 0.35);
+      outline-offset: 0;
+      border-color: var(--accent);
+    }
+    .form-actions {
+      margin-top: 0.35rem;
+      padding-top: 0.5rem;
+    }
+    .btn-submit {
+      appearance: none;
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding: 0.55rem 1.25rem;
+      border: none;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(37, 99, 235, 0.35);
+    }
+    .btn-submit:hover {
+      background: var(--accent-hover);
+    }
+    .btn-submit:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
     .preset-wrap.hidden { display: none; }
+    .err {
+      margin: 1rem 0 0;
+      padding: 0.65rem 0.85rem;
+      border-radius: 6px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      font-size: 0.9rem;
+    }
+    .result-section {
+      margin-top: 1.75rem;
+    }
+    .result-section h2 {
+      margin: 0 0 0.65rem;
+      font-size: 1.15rem;
+      font-weight: 650;
+    }
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.15rem;
+      overflow: hidden;
+    }
+    .result-pre {
+      margin: 0;
+      padding: 0;
+      font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      max-width: 100%;
+    }
   </style>
 </head>
 <body>
-  <h1>Аудит лендинга</h1>
-  <form method="post" action="/web/audit" id="audit-form">
-    <label>URL
-      <input type="url" name="url" required placeholder="https://example.com" value="{{ form.url }}" />
-    </label>
-    <label>Режим
-      <select name="mode" id="mode">
-        <option value="content" {% if form.mode == 'content' %}selected{% endif %}>content</option>
-        <option value="craftum" {% if form.mode == 'craftum' %}selected{% endif %}>craftum</option>
-        <option value="visual" {% if form.mode == 'visual' %}selected{% endif %}>visual</option>
-      </select>
-    </label>
-    <div class="preset-wrap {% if form.mode == 'visual' %}hidden{% endif %}" id="preset-wrap">
-      <label>Пресет
-        <select name="preset" id="preset">
-          {% for p in ['general', 'services', 'expert', 'course', 'leadgen', 'craftum'] %}
-          <option value="{{ p }}" {% if form.preset == p %}selected{% endif %}>{{ p }}</option>
-          {% endfor %}
-        </select>
-      </label>
+  <div class="page">
+    <header class="page-header">
+      <h1>Аудит лендинга</h1>
+      <p>Запуск аудита из браузера (тот же пайплайн, что и в API).</p>
+    </header>
+
+    <div class="card">
+      <form method="post" action="/web/audit" id="audit-form" class="form-grid">
+        <div class="form-row">
+          <label for="url">URL</label>
+          <div class="form-field">
+            <input type="url" id="url" name="url" required placeholder="https://example.com" value="{{ form.url }}" />
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="mode">Режим</label>
+          <div class="form-field">
+            <select name="mode" id="mode">
+              <option value="content" {% if form.mode == 'content' %}selected{% endif %}>content</option>
+              <option value="craftum" {% if form.mode == 'craftum' %}selected{% endif %}>craftum</option>
+              <option value="visual" {% if form.mode == 'visual' %}selected{% endif %}>visual</option>
+            </select>
+          </div>
+        </div>
+        <div class="preset-wrap {% if form.mode == 'visual' %}hidden{% endif %}" id="preset-wrap">
+          <div class="form-row">
+            <label for="preset">Пресет</label>
+            <div class="form-field">
+              <select name="preset" id="preset">
+                {% for p in ['general', 'services', 'expert', 'course', 'leadgen', 'craftum'] %}
+                <option value="{{ p }}" {% if form.preset == p %}selected{% endif %}>{{ p }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="lang">Язык</label>
+          <div class="form-field">
+            <select name="lang" id="lang">
+              <option value="ru" {% if form.lang == 'ru' %}selected{% endif %}>ru</option>
+              <option value="en" {% if form.lang == 'en' %}selected{% endif %}>en</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="output_format">Формат вывода</label>
+          <div class="form-field">
+            <select name="output_format" id="output_format">
+              <option value="readable" {% if form.output_format == 'readable' %}selected{% endif %}>readable</option>
+              <option value="json" {% if form.output_format == 'json' %}selected{% endif %}>json</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-submit">Запустить аудит</button>
+        </div>
+      </form>
     </div>
-    <label>Язык
-      <select name="lang">
-        <option value="ru" {% if form.lang == 'ru' %}selected{% endif %}>ru</option>
-        <option value="en" {% if form.lang == 'en' %}selected{% endif %}>en</option>
-      </select>
-    </label>
-    <label>Формат вывода
-      <select name="output_format">
-        <option value="json" {% if form.output_format == 'json' %}selected{% endif %}>json</option>
-        <option value="readable" {% if form.output_format == 'readable' %}selected{% endif %}>readable</option>
-      </select>
-    </label>
-    <button type="submit">Запустить аудит</button>
-  </form>
-  {% if error %}
-  <p class="err">{{ error }}</p>
-  {% endif %}
-  {% if result is not none %}
-  <h2>Результат</h2>
-  <pre>{{ result|safe }}</pre>
-  {% endif %}
+
+    {% if error %}
+    <p class="err" role="alert">{{ error }}</p>
+    {% endif %}
+
+    {% if result is not none %}
+    <section class="result-section" aria-labelledby="result-heading">
+      <h2 id="result-heading">Результат</h2>
+      <div class="result-card">
+        <pre class="result-pre">{{ result|safe }}</pre>
+      </div>
+    </section>
+    {% endif %}
+  </div>
   <script>
     (function () {
       var mode = document.getElementById('mode');
