@@ -164,6 +164,31 @@ def _default_block_analysis() -> dict[str, Any]:
 
 
 @dataclass
+class VisualIssue:
+    """Visual communication issue (visual audit mode; separate from ``AuditIssue``)."""
+
+    problem: str = ""
+    why_it_matters: str = ""
+    recommendation: str = ""
+    severity: str = "medium"
+
+
+@dataclass
+class VisualAuditResult:
+    """Structured visual audit (text + structure inference only; separate from ``AuditResult``)."""
+
+    overall_visual_assessment: str = ""
+    visual_issues: list[VisualIssue] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "audit_type": "visual",
+            "overall_visual_assessment": self.overall_visual_assessment,
+            "visual_issues": [asdict(v) for v in self.visual_issues],
+        }
+
+
+@dataclass
 class AuditResult:
     """Final audit report in JSON-friendly structure."""
 

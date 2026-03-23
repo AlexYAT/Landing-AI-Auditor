@@ -15,12 +15,12 @@ from app.interfaces.cli import build_parser
 from app.providers.llm import LlmProviderError
 from app.services.analyzer import AnalyzerError
 from app.services.assignment_formatter import format_assignment_output
-from app.services.audit_pipeline import run_landing_audit
+from app.services.audit_pipeline import run_landing_audit, run_visual_audit
 from app.services.audit_storage import save_audit_report
 from app.services.diff_service import compute_audit_diff_output
 from app.services.exporter import export_report
 from app.services.parser import ParsingError
-from app.services.report_builder import build_human_report, format_summary_readable
+from app.services.report_builder import build_human_report, format_summary_readable, format_visual_audit_readable
 
 logger = logging.getLogger(__name__)
 
@@ -213,6 +213,19 @@ def _write_saved_report(path_str: str, report: dict[str, Any], output_format: st
         path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _visual_report_text(report: dict[str, Any], output_format: str, lang: str) -> str:
+    """Serialize visual audit for stdout or file (JSON or readable only)."""
+    if output_format == "readable":
+        return format_visual_audit_readable(report, lang)
+    return json.dumps(report, ensure_ascii=False, indent=2)
+
+
+def _write_saved_visual_report(path_str: str, report: dict[str, Any], output_format: str, lang: str) -> None:
+    path = Path(path_str)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_visual_report_text(report, output_format, lang), encoding="utf-8")
+
+
 def _print_readable_console(report: dict[str, Any]) -> None:
     """Print ``report_readable`` (or rebuild via ``build_human_report``) to stdout."""
     rr = _readable_payload(report)
@@ -326,6 +339,9 @@ def run() -> int:
         if mode == "assignment":
             logger.info("Mode: assignment")
             print("Running in assignment mode")
+        elif mode == "visual":
+            logger.info("Mode: visual")
+            print("Running in visual audit mode")
 
         _log("fetching")
         _log("parsing")
@@ -336,6 +352,27 @@ def run() -> int:
             logger.info("Debug mode: writing parser artifacts to %s", debug_dir)
         _log("analyzing")
         rewrite_targets: tuple[str, ...] | None = getattr(args, "rewrite", None)
+
+        if mode == "visual":
+            report = run_visual_audit(
+                args.url,
+                settings=settings,
+                effective_lang=effective_lang,
+                debug_dir=debug_dir,
+            )
+            out_fmt = getattr(args, "output_format", "json") or "json"
+            text_out = _visual_report_text(report, out_fmt, effective_lang)
+            sys.stdout.write(text_out)
+            if not text_out.endswith("\n"):
+                sys.stdout.write("\n")
+            history_path = save_audit_report(args.url, report)
+            save_path = getattr(args, "save_report", None)
+            if save_path:
+                _write_saved_visual_report(save_path, report, out_fmt, effective_lang)
+                logger.info("Report saved to %s", save_path)
+            print("Audit completed successfully")
+            print(f"Аудит сохранён в: {history_path}")
+            return 0
 
         report = run_landing_audit(
             args.url,

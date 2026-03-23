@@ -79,6 +79,10 @@ class TestCliPreset(unittest.TestCase):
         args = build_parser().parse_args(["--url", "https://example.com"])
         self.assertEqual(args.preset, "general")
 
+    def test_mode_visual(self) -> None:
+        args = build_parser().parse_args(["--url", "https://example.com", "--mode", "visual"])
+        self.assertEqual(args.mode, "visual")
+
     def test_preset_services(self) -> None:
         args = build_parser().parse_args(
             ["--url", "https://example.com", "--preset", "services"],

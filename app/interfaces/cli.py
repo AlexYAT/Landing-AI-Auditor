@@ -28,8 +28,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--mode",
         default="full",
-        choices=["full", "assignment"],
-        help="Run mode: full (default) or assignment",
+        choices=["full", "assignment", "visual"],
+        help="Run mode: full (default), assignment, or visual-only audit (no CRO/content pipeline)",
     )
     parser.add_argument(
         "--output",

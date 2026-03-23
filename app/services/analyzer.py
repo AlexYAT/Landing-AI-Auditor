@@ -17,6 +17,8 @@ from app.core.models import (
     CraftumBlockPlan,
     QuickWin,
     Recommendation,
+    VisualAuditResult,
+    VisualIssue,
 )
 from app.providers.llm import OpenAiAuditProvider
 
@@ -33,6 +35,7 @@ ALLOWED_CATEGORIES = {"clarity", "cta", "trust", "friction", "structure", "forms
 ALLOWED_REWRITE_BLOCKS = ALLOWED_REWRITE_TARGETS
 ALLOWED_NEXT_BLOCK_PRIORITY = frozenset({"high", "medium"})
 ALLOWED_EFFORT = frozenset({"low", "medium", "high"})
+ALLOWED_VISUAL_SEVERITIES = frozenset({"low", "medium", "high"})
 
 
 def _as_list(data: Any) -> list[Any]:
@@ -249,6 +252,26 @@ def _normalize_action_roadmap(data: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
+def validate_and_normalize_visual_audit(data: dict[str, Any], lang: str = DEFAULT_LANG) -> VisualAuditResult:
+    """Normalize visual-audit JSON from the model; empty or invalid ``visual_issues`` → []."""
+    _ = normalize_lang(lang)
+    overall = _as_str(data.get("overall_visual_assessment"))
+    issues: list[VisualIssue] = []
+    for item in _as_list(data.get("visual_issues")):
+        if not isinstance(item, dict):
+            continue
+        sev = _normalize_choice(_as_str(item.get("severity")), ALLOWED_VISUAL_SEVERITIES, "medium")
+        issues.append(
+            VisualIssue(
+                problem=_as_str(item.get("problem")),
+                why_it_matters=_as_str(item.get("why_it_matters")),
+                recommendation=_as_str(item.get("recommendation")),
+                severity=sev,
+            )
+        )
+    return VisualAuditResult(overall_visual_assessment=overall, visual_issues=issues)
+
+
 def validate_and_normalize_audit_result(
     data: dict[str, Any],
     lang: str = DEFAULT_LANG,
@@ -378,3 +401,18 @@ def analyze_landing(
         )
     except Exception as exc:
         raise AnalyzerError(f"Failed to analyze and normalize LLM output: {exc}") from exc
+
+
+def analyze_visual_landing(
+    parsed_landing: dict[str, Any],
+    provider: OpenAiAuditProvider,
+    lang: str = DEFAULT_LANG,
+) -> VisualAuditResult:
+    """Run visual-only LLM audit (separate prompts; no CRO pipeline)."""
+    effective_lang = normalize_lang(lang)
+    logger.info("Visual audit mode (no content/CRO audit)")
+    try:
+        raw = provider.analyze_visual(parsed_data=parsed_landing, lang=effective_lang)
+        return validate_and_normalize_visual_audit(raw, lang=effective_lang)
+    except Exception as exc:
+        raise AnalyzerError(f"Failed to analyze and normalize visual LLM output: {exc}") from exc

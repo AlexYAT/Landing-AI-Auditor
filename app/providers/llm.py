@@ -13,6 +13,7 @@ from app.core.config import Settings
 from app.core.lang import DEFAULT_LANG
 from app.core.presets import DEFAULT_PRESET
 from app.core.prompts import build_system_prompt, build_user_prompt
+from app.core.visual_prompts import build_visual_system_prompt, build_visual_user_prompt
 
 
 class LlmProviderError(Exception):
@@ -122,6 +123,37 @@ class OpenAiAuditProvider:
                             rewrite_targets=rewrite_targets,
                         ),
                     },
+                ],
+            )
+            content = response.choices[0].message.content
+            if not content:
+                raise LlmProviderError("Empty response from OpenAI.")
+            return self._parse_json_response(content)
+        except Exception as exc:
+            if isinstance(exc, LlmProviderError):
+                raise
+            raise LlmProviderError(f"OpenAI request failed: {exc}") from exc
+
+    @retry(
+        reraise=True,
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=8),
+        retry=retry_if_exception_type(LlmProviderError),
+    )
+    def analyze_visual(
+        self,
+        parsed_data: dict[str, Any],
+        lang: str = DEFAULT_LANG,
+    ) -> dict[str, Any]:
+        """Visual audit only: separate system/user prompts (no CRO ``build_system_prompt``)."""
+        try:
+            response = self._client.chat.completions.create(
+                model=self._settings.openai_model,
+                temperature=0.2,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": build_visual_system_prompt(lang)},
+                    {"role": "user", "content": build_visual_user_prompt(parsed_data, lang)},
                 ],
             )
             content = response.choices[0].message.content

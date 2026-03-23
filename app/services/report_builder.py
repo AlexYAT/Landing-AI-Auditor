@@ -397,3 +397,59 @@ def build_human_report(report: dict) -> dict:
         "craftum_block_plan_readable": _format_craftum_block_plan_readable(report),
         "craftum_block_plan_section": craftum_block_plan_section_for_preset(report),
     }
+
+
+_VISUAL_READABLE_LABELS = {
+    "ru": {
+        "header": "=== VISUAL AUDIT ===",
+        "overall": "Общая оценка",
+        "problems": "Проблемы",
+        "problem": "Проблема",
+        "why": "Почему важно",
+        "recommendation": "Рекомендация",
+        "severity": "Серьёзность",
+    },
+    "en": {
+        "header": "=== VISUAL AUDIT ===",
+        "overall": "Overall assessment",
+        "problems": "Issues",
+        "problem": "Problem",
+        "why": "Why it matters",
+        "recommendation": "Recommendation",
+        "severity": "Severity",
+    },
+}
+
+
+def format_visual_audit_readable(report: dict[str, Any], lang: str | None = None) -> str:
+    """
+    Plain-text visual audit for CLI / ``--save-report`` (visual mode only).
+
+    Expects keys ``overall_visual_assessment`` and ``visual_issues`` (and optional ``audit_type``).
+    """
+    code = normalize_lang(lang) if lang is not None else normalize_lang(report.get("language"))
+    L = _VISUAL_READABLE_LABELS.get(code, _VISUAL_READABLE_LABELS["en"])
+    lines: list[str] = [L["header"], ""]
+    lines.append(f"{L['overall']}:")
+    lines.append(_txt(report.get("overall_visual_assessment")) or "—")
+    lines.append("")
+    lines.append(f"{L['problems']}:")
+    raw = report.get("visual_issues")
+    if not isinstance(raw, list) or not raw:
+        lines.append("—")
+        return "\n".join(lines)
+    dict_items = [x for x in raw if isinstance(x, dict)]
+    for idx, item in enumerate(dict_items, start=1):
+        lines.append(f"{idx}.")
+        lines.append(f"{L['problem']}:")
+        lines.append(_txt(item.get("problem")) or "—")
+        lines.append(f"{L['why']}:")
+        lines.append(_txt(item.get("why_it_matters")) or "—")
+        lines.append(f"{L['recommendation']}:")
+        lines.append(_txt(item.get("recommendation")) or "—")
+        lines.append(f"{L['severity']}: {_txt(item.get('severity')) or 'medium'}")
+        lines.append("")
+        if idx < len(dict_items):
+            lines.append("---")
+            lines.append("")
+    return "\n".join(lines).rstrip()
