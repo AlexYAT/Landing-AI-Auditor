@@ -3,6 +3,9 @@ __pycache__/
 .venv/
 output/
 out/
+reports/
+tmp/
+temp/
 *.pyc
 tests/
 audits/
