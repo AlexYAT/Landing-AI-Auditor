@@ -464,12 +464,19 @@ def analyze_visual_landing(
     parsed_landing: dict[str, Any],
     provider: OpenAiAuditProvider,
     lang: str = DEFAULT_LANG,
+    image_path: str | None = None,
 ) -> VisualAuditResult:
     """Run visual-only LLM audit (separate prompts; no CRO pipeline)."""
     effective_lang = normalize_lang(lang)
     logger.info("Visual audit mode (no content/CRO audit)")
+    if image_path:
+        logger.info("Visual audit: screenshot path provided for multimodal request")
     try:
-        raw = provider.analyze_visual(parsed_data=parsed_landing, lang=effective_lang)
+        raw = provider.analyze_visual(
+            parsed_data=parsed_landing,
+            lang=effective_lang,
+            image_path=image_path,
+        )
         return validate_and_normalize_visual_audit(raw, lang=effective_lang)
     except Exception as exc:
         raise AnalyzerError(f"Failed to analyze and normalize visual LLM output: {exc}") from exc

@@ -95,13 +95,52 @@ _VISUAL_LANG_POLICY = {
     ),
 }
 
+_VISUAL_MULTIMODAL_NOTE_RU = """
+Мультимодальный режим: к запросу приложён скриншот полной страницы.
+Используй его как основной источник для оценки визуальной структуры, иерархии, читаемости, контраста и восприятия CTA; данные JSON парсера — дополнительный контекст (точные формулировки, кнопки).
+При противоречии между «ощущением по тексту» и тем, что видно на скриншоте, приоритет у визуального наблюдения по изображению.
+""".strip()
 
-def build_visual_system_prompt(lang: str) -> str:
+_VISUAL_MULTIMODAL_NOTE_EN = """
+Multimodal mode: a full-page screenshot is attached.
+Use it as the primary source for visual structure, hierarchy, readability, contrast, and CTA salience; the parsed JSON is supplementary context (exact wording, button lists).
+If textual parser data and the screenshot disagree, prefer what you observe in the image.
+""".strip()
+
+
+def _patch_visual_prompt_for_screenshot(base: str, code: str) -> str:
+    """Relax text-only restrictions where they conflict with screenshot-grounded analysis."""
+    if code == "ru":
+        return (
+            base.replace(
+                "Опирайся только на переданный JSON парсера. Не выдумывай факты о дизайне, которых нет в данных.",
+                "Скриншот отражает фактический вид страницы; JSON парсера дополняет текстовыми данными. Не выдумывай элементы, отсутствующие и на скриншоте, и в JSON.",
+            ).replace(
+                "- ссылки на то, чего нет в данных (реальные скриншоты, точная вёрстка).",
+                "- утверждать детали, не видимые ни на скриншоте, ни в JSON.",
+            )
+        )
+    return (
+        base.replace(
+            "Use only the supplied parsed JSON. Do not invent design facts.",
+            "The screenshot reflects the actual page; parsed JSON supplements it with text. Do not invent elements missing from both the image and the JSON.",
+        ).replace(
+            "claims about screenshots or layout not supported by the data.",
+            "claims about details not visible in the screenshot or JSON.",
+        )
+    )
+
+
+def build_visual_system_prompt(lang: str, has_image: bool = False) -> str:
     """Standalone system prompt for visual audit (not shared with CRO ``build_system_prompt``)."""
     code = normalize_lang(lang)
     base = _VISUAL_SYSTEM_RU if code == "ru" else _VISUAL_SYSTEM_EN
     policy = _VISUAL_LANG_POLICY.get(code, _VISUAL_LANG_POLICY[DEFAULT_LANG])
-    return f"{base}\n\nLanguage policy:\n{policy}"
+    if not has_image:
+        return f"{base}\n\nLanguage policy:\n{policy}"
+    note = _VISUAL_MULTIMODAL_NOTE_RU if code == "ru" else _VISUAL_MULTIMODAL_NOTE_EN
+    patched = _patch_visual_prompt_for_screenshot(base, code)
+    return f"{note}\n\n{patched}\n\nLanguage policy:\n{policy}"
 
 
 def build_visual_user_prompt(parsed_data: dict, lang: str) -> str:

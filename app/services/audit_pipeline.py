@@ -12,6 +12,7 @@ from app.providers.llm import OpenAiAuditProvider
 from app.services.analyzer import analyze_landing, analyze_visual_landing
 from app.services.parser import parse_landing
 from app.services.report_builder import build_human_report
+from app.services.screenshot_capture import capture_page_screenshot
 
 logger = logging.getLogger(__name__)
 
@@ -62,12 +63,19 @@ def run_visual_audit(
     Returns a dict with ``audit_type``, ``language``, ``overall_visual_assessment``, ``visual_issues``.
     """
     parsed_landing = parse_landing(url=url, settings=settings, debug_dir=debug_dir)
+    screenshot_path = capture_page_screenshot(url)
+    if screenshot_path:
+        logger.info("Visual audit: using page screenshot for multimodal analysis")
+    else:
+        logger.info("Visual audit: no screenshot; text-only visual analysis")
     provider = OpenAiAuditProvider(settings=settings)
     visual = analyze_visual_landing(
         parsed_landing=parsed_landing.to_dict(),
         provider=provider,
         lang=effective_lang,
+        image_path=screenshot_path,
     )
     report = visual.to_dict()
     report["language"] = effective_lang
+    report["visual_screenshot_used"] = bool(screenshot_path)
     return report

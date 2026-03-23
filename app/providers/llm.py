@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import re
+from pathlib import Path
 from typing import Any, Sequence
 
 from openai import OpenAI
@@ -144,16 +146,34 @@ class OpenAiAuditProvider:
         self,
         parsed_data: dict[str, Any],
         lang: str = DEFAULT_LANG,
+        image_path: str | None = None,
     ) -> dict[str, Any]:
         """Visual audit only: separate system/user prompts (no CRO ``build_system_prompt``)."""
+        path_ok = bool(image_path and Path(image_path).is_file())
+        user_text = build_visual_user_prompt(parsed_data, lang)
+        if path_ok:
+            raw = Path(image_path).read_bytes()
+            b64 = base64.standard_b64encode(raw).decode("ascii")
+            user_content: str | list[dict[str, Any]] = [
+                {"type": "text", "text": user_text},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/png;base64,{b64}"},
+                },
+            ]
+        else:
+            user_content = user_text
         try:
             response = self._client.chat.completions.create(
                 model=self._settings.openai_model,
                 temperature=0.2,
                 response_format={"type": "json_object"},
                 messages=[
-                    {"role": "system", "content": build_visual_system_prompt(lang)},
-                    {"role": "user", "content": build_visual_user_prompt(parsed_data, lang)},
+                    {
+                        "role": "system",
+                        "content": build_visual_system_prompt(lang, has_image=path_ok),
+                    },
+                    {"role": "user", "content": user_content},
                 ],
             )
             content = response.choices[0].message.content

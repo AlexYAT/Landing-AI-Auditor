@@ -1,6 +1,7 @@
 requests
 beautifulsoup4
 openai
+playwright>=1.40.0
 python-dotenv
 tenacity
 fastapi>=0.109.0
