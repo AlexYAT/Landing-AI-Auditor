@@ -80,6 +80,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Save analysis to PATH (JSON or markdown-like text per --output-format)",
     )
     parser.add_argument(
+        "--save-run",
+        dest="save_run",
+        choices=["baseline", "improved"],
+        default=None,
+        help="Save full JSON + readable .md under audits/baseline/ or audits/improved/ (single-audit run only)",
+    )
+    parser.add_argument(
         "--baseline",
         action="store_true",
         help="Run baseline snapshot: content + craftum + visual into <AUDITS_DIR>/baseline (requires --url; no compare yet)",

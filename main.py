@@ -17,7 +17,7 @@ from app.providers.llm import LlmProviderError
 from app.services.analyzer import AnalyzerError
 from app.services.assignment_formatter import format_assignment_output
 from app.services.audit_pipeline import run_landing_audit, run_visual_audit
-from app.services.audit_storage import save_audit_report
+from app.services.audit_storage import save_audit_report, save_run_audit_pair
 from app.services.diff_service import compute_audit_diff_output
 from app.services.exporter import export_report
 from app.services.parser import ParsingError
@@ -34,6 +34,31 @@ from app.services.readable_export import (
 from app.services.report_builder import format_visual_audit_readable
 
 logger = logging.getLogger(__name__)
+
+
+def _maybe_save_run(
+    args: Any,
+    report: dict[str, Any],
+    *,
+    mode: str,
+    effective_lang: str,
+) -> None:
+    run_kind = getattr(args, "save_run", None)
+    if not run_kind:
+        return
+    if mode == "visual":
+        readable = format_visual_audit_readable(report, effective_lang)
+    else:
+        readable = _build_readable_markdown(report)
+    j_path, m_path = save_run_audit_pair(
+        args.url,
+        report,
+        run_type=run_kind,
+        cli_mode=mode,
+        readable_body=readable,
+    )
+    print(f"Saved audit to: {j_path}")
+    print(f"Saved audit (readable) to: {m_path}")
 
 
 def _load_audit_json(path: str) -> dict[str, Any]:
@@ -332,6 +357,7 @@ def run() -> int:
             if not text_out.endswith("\n"):
                 sys.stdout.write("\n")
             history_path = save_audit_report(args.url, report)
+            _maybe_save_run(args, report, mode=mode, effective_lang=effective_lang)
             save_path = getattr(args, "save_report", None)
             if save_path:
                 _write_saved_visual_report(save_path, report, out_fmt, effective_lang)
@@ -360,6 +386,7 @@ def run() -> int:
             print(json.dumps(report, ensure_ascii=False, indent=2))
 
         history_path = save_audit_report(args.url, report)
+        _maybe_save_run(args, report, mode=mode, effective_lang=effective_lang)
 
         save_path = getattr(args, "save_report", None)
         if save_path:
