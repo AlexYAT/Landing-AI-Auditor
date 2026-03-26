@@ -19,6 +19,7 @@ from app.services.baseline_runner import (
     MANIFEST_JSON,
     VISUAL_JSON,
 )
+from app.services.audit_storage import merge_report_meta
 from app.services.compare_heuristics import (
     build_comparison_payload,
     render_comparison_markdown,
@@ -203,6 +204,14 @@ def run_full_audit_compare(
             preset="general",
             debug_dir=debug_dir,
         )
+        current_content = merge_report_meta(
+            current_content,
+            url,
+            mode="full",
+            preset="general",
+            run_type=None,
+            language=effective_lang,
+        )
         _write_json(path_cc, current_content)
         path_cread.write_text(
             build_landing_audit_readable_markdown(current_content),
@@ -223,6 +232,14 @@ def run_full_audit_compare(
             preset="craftum",
             debug_dir=debug_dir,
         )
+        current_craftum = merge_report_meta(
+            current_craftum,
+            url,
+            mode="full",
+            preset="craftum",
+            run_type=None,
+            language=effective_lang,
+        )
         _write_json(path_craft, current_craftum)
         modes_ok["craftum"] = True
     except Exception as exc:
@@ -234,6 +251,14 @@ def run_full_audit_compare(
             "error_type": type(exc).__name__,
             "preset": "craftum",
         }
+        current_craftum = merge_report_meta(
+            current_craftum,
+            url,
+            mode="full",
+            preset="craftum",
+            run_type=None,
+            language=effective_lang,
+        )
         _write_json(path_craft, current_craftum)
 
     try:
@@ -242,6 +267,14 @@ def run_full_audit_compare(
             settings=settings,
             effective_lang=effective_lang,
             debug_dir=debug_dir,
+        )
+        current_visual = merge_report_meta(
+            current_visual,
+            url,
+            mode="visual",
+            preset="general",
+            run_type=None,
+            language=effective_lang,
         )
         _write_json(path_vis, current_visual)
         modes_ok["visual"] = True
@@ -254,8 +287,15 @@ def run_full_audit_compare(
             "error_type": type(exc).__name__,
             "audit_type": "visual",
         }
-        _write_json(path_vis, stub)
-        current_visual = stub
+        current_visual = merge_report_meta(
+            stub,
+            url,
+            mode="visual",
+            preset="general",
+            run_type=None,
+            language=effective_lang,
+        )
+        _write_json(path_vis, current_visual)
 
     if current_content is None:
         cmp_fail = {

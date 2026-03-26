@@ -57,7 +57,7 @@
   <ul class="audit-history">
     {% for row in audit_history %}
     <li>
-      <span class="audit-meta">{{ row.timestamp }} · <strong>{{ row.domain }}</strong></span>
+      <span class="audit-meta">{{ row.timestamp }} · <strong>{{ row.domain }}</strong>{% if row.context_suffix %} · {{ row.context_suffix }}{% endif %}</span>
       <span class="audit-actions">
         <a href="{{ row.open_url }}">Open</a>
         · <a href="{{ row.open_url_json }}">JSON</a>
@@ -344,7 +344,9 @@
           }
           if (pre) {
             pre.style.display = "block";
-            pre.textContent = productizeChangeSummary(data.change_summary || "") + "\n\n" + (data.diff || "");
+            var head = (data.audit_context || "").trim();
+            if (head) head += "\n\n";
+            pre.textContent = head + productizeChangeSummary(data.change_summary || "") + "\n\n" + (data.diff || "");
           }
         })
         .catch(function (e) {

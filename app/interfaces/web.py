@@ -18,6 +18,14 @@ from app.providers.llm import LlmProviderError
 from app.services.analyzer import AnalyzerError
 from app.services.audit_pipeline import run_landing_audit, run_visual_audit
 from app.services.audit_storage import save_audit_report
+
+
+def _web_meta_mode_preset(form_mode: str, form_preset: str) -> tuple[str, str]:
+    if form_mode == "visual":
+        return "visual", "general"
+    if form_mode == "craftum":
+        return "full", "craftum"
+    return "full", form_preset or "general"
 from app.services.parser import ParsingError
 from app.services.readable_export import build_landing_audit_readable_markdown
 from app.services.report_builder import format_visual_audit_readable
@@ -158,7 +166,14 @@ def web_audit_submit(
         )
 
     try:
-        save_audit_report(form["url"], report)
+        wm, wp = _web_meta_mode_preset(form["mode"], form["preset"])
+        save_audit_report(
+            form["url"],
+            report,
+            mode=wm,
+            preset=wp,
+            run_type=None,
+        )
     except OSError as exc:
         logger.warning("Could not persist web UI audit snapshot: %s", exc)
 

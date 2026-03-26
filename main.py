@@ -356,7 +356,13 @@ def run() -> int:
             sys.stdout.write(text_out)
             if not text_out.endswith("\n"):
                 sys.stdout.write("\n")
-            history_path = save_audit_report(args.url, report)
+            history_path = save_audit_report(
+                args.url,
+                report,
+                mode=mode,
+                preset=report.get("preset"),
+                run_type=getattr(args, "save_run", None),
+            )
             _maybe_save_run(args, report, mode=mode, effective_lang=effective_lang)
             save_path = getattr(args, "save_report", None)
             if save_path:
@@ -385,7 +391,13 @@ def run() -> int:
         else:
             print(json.dumps(report, ensure_ascii=False, indent=2))
 
-        history_path = save_audit_report(args.url, report)
+        history_path = save_audit_report(
+            args.url,
+            report,
+            mode=mode,
+            preset=report.get("preset"),
+            run_type=getattr(args, "save_run", None),
+        )
         _maybe_save_run(args, report, mode=mode, effective_lang=effective_lang)
 
         save_path = getattr(args, "save_report", None)

@@ -25,7 +25,13 @@ from app.interfaces.web import web_router
 from app.providers.llm import LlmProviderError
 from app.services.analyzer import AnalyzerError
 from app.services.audit_pipeline import run_landing_audit
-from app.services.audit_storage import save_audit_report
+from app.services.audit_storage import (
+    coerce_audit_meta,
+    format_audit_context_text,
+    format_history_context_line,
+    merge_report_meta,
+    save_audit_report,
+)
 from app.services.parser import ParsingError
 from app.services.report_builder import build_human_report
 
@@ -82,6 +88,14 @@ def _audit_history_entries() -> list[dict[str, str]]:
             domain, ts = "—", p.name
             sort_key = (0, 0)
         q = quote(p.name)
+        ctx_suffix = ""
+        try:
+            raw_hist = json.loads(p.read_text(encoding="utf-8"))
+            ctx_suffix = format_history_context_line(
+                coerce_audit_meta(raw_hist, filename=p.name, url_fallback=""),
+            )
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            ctx_suffix = "? · ?"
         rows.append(
             (
                 sort_key,
@@ -89,6 +103,7 @@ def _audit_history_entries() -> list[dict[str, str]]:
                     "filename": p.name,
                     "domain": domain,
                     "timestamp": ts,
+                    "context_suffix": ctx_suffix,
                     "open_url": f"/ui/audit/file?filename={q}&output_mode=readable",
                     "open_url_json": f"/ui/audit/file?filename={q}&output_mode=json",
                 },
@@ -291,7 +306,7 @@ def _run_audit_from_body(body: AuditRequest) -> dict[str, Any]:
         host = urlparse(body.url).netloc.replace(":", "_") or "unknown"
         debug_dir = Path("output") / "debug" / host
         logger.info("API debug: writing parser artifacts to %s", debug_dir)
-    return run_landing_audit(
+    report = run_landing_audit(
         body.url,
         settings=settings,
         user_task=body.task,
@@ -299,6 +314,15 @@ def _run_audit_from_body(body: AuditRequest) -> dict[str, Any]:
         rewrite_targets=rewrite_targets,
         preset=body.preset,
         debug_dir=debug_dir,
+    )
+    return merge_report_meta(
+        report,
+        body.url,
+        mode="full",
+        preset=body.preset,
+        run_type=None,
+        label=None,
+        language=effective_lang,
     )
 
 
@@ -356,7 +380,12 @@ def get_health() -> HealthResponse:
 def list_saved_audits() -> list[dict[str, str]]:
     """List JSON files in ``audits/`` (CLI history), with domain and timestamp from filename."""
     return [
-        {"filename": r["filename"], "domain": r["domain"], "timestamp": r["timestamp"]}
+        {
+            "filename": r["filename"],
+            "domain": r["domain"],
+            "timestamp": r["timestamp"],
+            "context_suffix": r.get("context_suffix", ""),
+        }
         for r in _audit_history_entries()
     ]
 
@@ -397,7 +426,16 @@ def get_audits_diff(file1: str, file2: str) -> dict[str, Any]:
     out = compute_audit_diff_output(old_rep, new_rep)
     progress_payload: dict[str, Any] = dict(out["progress"])
     progress_payload["progress_text"] = out["progress_text"].rstrip()
+    meta_old = coerce_audit_meta(old_rep, filename=file1)
+    meta_new = coerce_audit_meta(new_rep, filename=file2)
+    audit_context = (
+        "=== CONTEXT ===\n\n"
+        + format_audit_context_text("Baseline", meta_old)
+        + "\n"
+        + format_audit_context_text("Improved", meta_new)
+    )
     return {
+        "audit_context": audit_context,
         "change_summary": out["change_summary"].rstrip(),
         "diff": out["diff"].rstrip(),
         "progress": progress_payload,
@@ -530,7 +568,13 @@ def ui_audit_submit(
             status_code=500,
         )
     try:
-        saved = save_audit_report(body.url, report)
+        saved = save_audit_report(
+            body.url,
+            report,
+            mode="full",
+            preset=body.preset,
+            run_type=None,
+        )
         logger.info("UI audit snapshot saved: %s", saved)
     except OSError as exc:
         logger.warning("Could not persist UI audit snapshot: %s", exc)

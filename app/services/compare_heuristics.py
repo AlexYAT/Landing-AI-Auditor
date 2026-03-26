@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.services.audit_storage import coerce_audit_meta, format_audit_context_text
 from app.services.diff_service import compute_progress_score
 
 
@@ -371,10 +372,24 @@ def build_comparison_payload(
     craftum_mb_a = missing_blocks_ordered(current_craftum)
     cr_rm, cr_ad, _cr_kept = compare_string_buckets(craftum_mb_b, craftum_mb_a)
 
+    ctx_b = coerce_audit_meta(baseline_content, url_fallback=url)
+    ctx_a = coerce_audit_meta(current_content, url_fallback=url)
+    context_block = (
+        "=== CONTEXT ===\n\n"
+        + format_audit_context_text("Baseline", ctx_b)
+        + "\n"
+        + format_audit_context_text("Improved", ctx_a)
+    )
+
     return {
         "url": url,
         "baseline_dir": baseline_dir,
         "current_dir": output_dir,
+        "context": {
+            "baseline": ctx_b,
+            "improved": ctx_a,
+            "context_block": context_block,
+        },
         "status": "ok",
         "overall_change": {
             "direction": direction,
@@ -435,6 +450,8 @@ def render_comparison_markdown(payload: dict[str, Any]) -> str:
     conv = payload.get("conversion_assessment") or {}
     blocks = payload.get("block_assessment") or {}
     vis = payload.get("visual") or {}
+    ctx = payload.get("context") or {}
+    ctx_blk = ctx.get("context_block")
 
     lines: list[str] = [
         "# Full audit comparison",
@@ -443,6 +460,11 @@ def render_comparison_markdown(payload: dict[str, Any]) -> str:
         f"- **Baseline:** `{payload.get('baseline_dir', '')}`",
         f"- **Current run:** `{payload.get('current_dir', '')}`",
         "",
+    ]
+    if ctx_blk:
+        lines.extend([str(ctx_blk).rstrip(), ""])
+    lines.extend(
+        [
         "# Overall change",
         "",
         f"- **Direction:** {oc.get('direction', '')}",
@@ -452,7 +474,8 @@ def render_comparison_markdown(payload: dict[str, Any]) -> str:
         "",
         "# What improved",
         "",
-    ]
+        ]
+    )
     for x in ch.get("improved") or []:
         lines.append(f"- {x}")
     if not ch.get("improved"):

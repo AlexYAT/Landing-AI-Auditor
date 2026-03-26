@@ -13,6 +13,7 @@ from typing import Any, Callable
 from app.core import paths
 from app.core.config import Settings
 from app.services.audit_pipeline import run_landing_audit, run_visual_audit
+from app.services.audit_storage import merge_report_meta
 from app.services.readable_export import build_landing_audit_readable_markdown
 
 logger = logging.getLogger(__name__)
@@ -115,7 +116,17 @@ def run_baseline_audit(
             preset="general",
             debug_dir=debug_dir,
         )
-        _write_json(path_content, report_content)
+        _write_json(
+            path_content,
+            merge_report_meta(
+                report_content,
+                url,
+                mode="full",
+                preset="general",
+                run_type="baseline",
+                language=effective_lang,
+            ),
+        )
         artifacts["content_json"] = _rel_to_project(path_content)
         path_readable.write_text(
             build_landing_audit_readable_markdown(report_content),
@@ -143,7 +154,17 @@ def run_baseline_audit(
             preset="craftum",
             debug_dir=debug_dir,
         )
-        _write_json(path_craftum, report_craftum)
+        _write_json(
+            path_craftum,
+            merge_report_meta(
+                report_craftum,
+                url,
+                mode="full",
+                preset="craftum",
+                run_type="baseline",
+                language=effective_lang,
+            ),
+        )
         artifacts["craftum_json"] = _rel_to_project(path_craftum)
         modes["craftum"].ok = True
     except Exception as exc:
@@ -163,7 +184,17 @@ def run_baseline_audit(
             effective_lang=effective_lang,
             debug_dir=debug_dir,
         )
-        _write_json(path_visual, report_visual)
+        _write_json(
+            path_visual,
+            merge_report_meta(
+                report_visual,
+                url,
+                mode="visual",
+                preset="general",
+                run_type="baseline",
+                language=effective_lang,
+            ),
+        )
         artifacts["visual_json"] = _rel_to_project(path_visual)
         modes["visual"].ok = True
     except Exception as exc:
@@ -179,7 +210,17 @@ def run_baseline_audit(
             "error_type": type(exc).__name__,
             "audit_type": "visual",
         }
-        _write_json(path_visual, stub)
+        _write_json(
+            path_visual,
+            merge_report_meta(
+                stub,
+                url,
+                mode="visual",
+                preset="general",
+                run_type="baseline",
+                language=effective_lang,
+            ),
+        )
         artifacts["visual_json"] = _rel_to_project(path_visual)
         notes.append("Visual audit failed; visual.json contains error stub.")
 
