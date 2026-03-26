@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from app.core import paths
 from app.core.config import get_settings
 from app.core.lang import normalize_lang, resolve_effective_lang, used_language_fallback
 from app.interfaces.cli import build_parser
@@ -20,7 +21,17 @@ from app.services.audit_storage import save_audit_report
 from app.services.diff_service import compute_audit_diff_output
 from app.services.exporter import export_report
 from app.services.parser import ParsingError
-from app.services.report_builder import build_human_report, format_summary_readable, format_visual_audit_readable
+from app.services.baseline_runner import run_baseline_audit
+from app.services.compare_runner import run_full_audit_compare
+from app.services.readable_export import (
+    block_analysis_visible,
+    build_landing_audit_readable_markdown as _build_readable_markdown,
+    format_quick_win_line,
+    readable_payload,
+    rewrite_texts_readable_nonempty,
+    summary_for_readable,
+)
+from app.services.report_builder import format_visual_audit_readable
 
 logger = logging.getLogger(__name__)
 
@@ -80,128 +91,8 @@ def _configure_stdio_utf8() -> None:
                 pass
 
 
-def _summary_for_readable(report: dict[str, Any], rr: dict[str, Any]) -> str:
-    """Plain-text summary for CLI readable / save-report (not raw JSON)."""
-    return format_summary_readable(rr.get("summary"), report.get("language"))
-
-
-def _readable_payload(report: dict[str, Any]) -> dict[str, Any]:
-    """``report_readable`` dict or ``build_human_report(report)``."""
-    rr = report.get("report_readable")
-    if isinstance(rr, dict):
-        return rr
-    return build_human_report(report)
-
-
-def _block_analysis_visible(rr: dict[str, Any]) -> bool:
-    if rr.get("next_action_readable"):
-        return True
-    bar = rr.get("block_analysis_readable")
-    if not isinstance(bar, dict):
-        return False
-    mb = bar.get("missing_blocks") or []
-    if mb:
-        return True
-    na = bar.get("next_action")
-    if not isinstance(na, dict):
-        return False
-    for k, v in na.items():
-        if k == "confidence":
-            if isinstance(v, (int, float)) and float(v) > 0:
-                return True
-            continue
-        if v is not None and str(v).strip():
-            return True
-    return False
-
-
-def _rewrite_texts_readable_nonempty(rr: dict[str, Any]) -> bool:
-    rt = rr.get("rewrite_texts_readable")
-    if not isinstance(rt, dict):
-        return False
-    for key in ("hero", "cta", "trust"):
-        if str(rt.get(key, "")).strip():
-            return True
-    return False
-
-
-def _format_quick_win_line(item: Any) -> str:
-    if isinstance(item, dict):
-        title = str(item.get("title", "")).strip()
-        action = str(item.get("action", "")).strip()
-        if title and action:
-            return f"- {title}: {action}"
-        if title:
-            return f"- {title}"
-        if action:
-            return f"- {action}"
-        return f"- {item}"
-    return f"- {item}"
-
-
 def _print_quick_win_line(item: Any) -> None:
-    print(_format_quick_win_line(item))
-
-
-def _build_readable_markdown(report: dict[str, Any]) -> str:
-    """Markdown-like file body for ``--save-report`` with ``--output-format readable``."""
-    rr = _readable_payload(report)
-    parts: list[str] = [
-        "# Summary",
-        _summary_for_readable(report, rr),
-        "",
-        "# Issues",
-    ]
-    for line in rr.get("issues_readable") or []:
-        parts.append(f"- {line}")
-    parts.extend(["", "# Recommendations"])
-    blocks = rr.get("recommendations_readable") or []
-    for i, block in enumerate(blocks):
-        if i > 0:
-            parts.append("")
-        parts.append(block)
-    if str(report.get("preset", "")).lower() == "craftum":
-        csec = (rr.get("craftum_block_plan_section") or "").strip()
-        if csec:
-            parts.extend(["", csec])
-    parts.extend(["", "# Quick Wins"])
-    for item in rr.get("quick_wins") or []:
-        parts.append(_format_quick_win_line(item))
-    if _block_analysis_visible(rr):
-        bar = rr.get("block_analysis_readable")
-        if not isinstance(bar, dict):
-            bar = {}
-        mb = list(bar.get("missing_blocks") or [])
-        if mb:
-            parts.extend(["", "# Missing blocks", ""])
-            for line in mb:
-                parts.append(f"- {line}")
-        nar = rr.get("next_action_readable") or ""
-        if nar.strip():
-            parts.extend(["", "# Next action", "", nar])
-    arr = (rr.get("action_roadmap_readable") or "").strip()
-    if arr:
-        parts.extend(["", "# Action roadmap", "", arr])
-    if _rewrite_texts_readable_nonempty(rr):
-        rt = rr.get("rewrite_texts_readable")
-        if not isinstance(rt, dict):
-            rt = {}
-        parts.extend(
-            [
-                "",
-                "# Rewrites",
-                "",
-                "## Hero",
-                str(rt.get("hero", "")),
-                "",
-                "## CTA",
-                str(rt.get("cta", "")),
-                "",
-                "## Trust",
-                str(rt.get("trust", "")),
-            ]
-        )
-    return "\n".join(parts)
+    print(format_quick_win_line(item))
 
 
 def _write_saved_report(path_str: str, report: dict[str, Any], output_format: str) -> None:
@@ -228,10 +119,10 @@ def _write_saved_visual_report(path_str: str, report: dict[str, Any], output_for
 
 def _print_readable_console(report: dict[str, Any]) -> None:
     """Print ``report_readable`` (or rebuild via ``build_human_report``) to stdout."""
-    rr = _readable_payload(report)
+    rr = readable_payload(report)
 
     print("=== SUMMARY ===")
-    print(_summary_for_readable(report, rr))
+    print(summary_for_readable(report, rr))
     print()
     print("=== ISSUES ===")
     for line in rr.get("issues_readable") or []:
@@ -252,7 +143,7 @@ def _print_readable_console(report: dict[str, Any]) -> None:
     print("=== QUICK WINS ===")
     for item in rr.get("quick_wins") or []:
         _print_quick_win_line(item)
-    if _block_analysis_visible(rr):
+    if block_analysis_visible(rr):
         bar = rr.get("block_analysis_readable")
         if not isinstance(bar, dict):
             bar = {}
@@ -272,7 +163,7 @@ def _print_readable_console(report: dict[str, Any]) -> None:
         print()
         print("=== ACTION ROADMAP ===")
         print(arr)
-    if _rewrite_texts_readable_nonempty(rr):
+    if rewrite_texts_readable_nonempty(rr):
         rt = rr.get("rewrite_texts_readable")
         if not isinstance(rt, dict):
             rt = {}
@@ -334,6 +225,81 @@ def run() -> int:
 
     if getattr(args, "diff", None):
         return _run_diff(args.diff[0], args.diff[1])
+
+    if getattr(args, "baseline", False):
+        if not args.url:
+            print("Error: --baseline requires --url", file=sys.stderr)
+            return 1
+        _log("baseline: output directory")
+        out_arg = getattr(args, "baseline_dir", None)
+        baseline_out = Path(out_arg) if out_arg else paths.get_audits_dir() / "baseline"
+        if not baseline_out.is_absolute():
+            baseline_out = (paths.PROJECT_ROOT / baseline_out).resolve()
+        debug_dir_b: Path | None = None
+        if getattr(args, "debug", False):
+            host = urlparse(args.url).netloc.replace(":", "_") or "unknown"
+            debug_dir_b = Path("output") / "debug" / host
+            logger.info("Debug mode: baseline using parser artifacts under %s", debug_dir_b)
+        try:
+            summary = run_baseline_audit(
+                args.url.strip(),
+                settings=settings,
+                effective_lang=effective_lang,
+                output_dir=baseline_out,
+                user_task=getattr(args, "task", None),
+                debug_dir=debug_dir_b,
+            )
+            print(f"Baseline finished: status={summary.status}")
+            print(f"Manifest: {summary.manifest_path}")
+            rel = summary.manifest_path
+            try:
+                rel = rel.relative_to(paths.PROJECT_ROOT)
+            except ValueError:
+                pass
+            print(f"(relative to project: {rel})")
+            return 0 if summary.exit_ok else 1
+        except Exception as exc:
+            print(f"Error: baseline run failed: {exc}", file=sys.stderr)
+            return 1
+
+    if getattr(args, "full_audit", False):
+        if not args.url:
+            print("Error: --full-audit / --compare-baseline requires --url", file=sys.stderr)
+            return 1
+        baseline_ref = (
+            Path(args.baseline_dir)
+            if getattr(args, "baseline_dir", None)
+            else paths.get_audits_dir() / "baseline"
+        )
+        if not baseline_ref.is_absolute():
+            baseline_ref = (paths.PROJECT_ROOT / baseline_ref).resolve()
+        compare_out = (
+            Path(args.compare_dir) if getattr(args, "compare_dir", None) else paths.get_audits_dir() / "compare"
+        )
+        if not compare_out.is_absolute():
+            compare_out = (paths.PROJECT_ROOT / compare_out).resolve()
+        debug_dir_c: Path | None = None
+        if getattr(args, "debug", False):
+            host = urlparse(args.url).netloc.replace(":", "_") or "unknown"
+            debug_dir_c = Path("output") / "debug" / host
+            logger.info("Debug mode: full-audit using parser artifacts under %s", debug_dir_c)
+        try:
+            summary = run_full_audit_compare(
+                args.url.strip(),
+                settings=settings,
+                effective_lang=effective_lang,
+                baseline_dir=baseline_ref,
+                output_dir=compare_out,
+                user_task=getattr(args, "task", None),
+                debug_dir=debug_dir_c,
+            )
+            print(f"Full-audit compare finished: status={summary.status}")
+            print(f"Manifest: {summary.manifest_path}")
+            print(f"Comparison: {summary.comparison_path}")
+            return 0 if summary.exit_ok else 1
+        except Exception as exc:
+            print(f"Error: full-audit compare failed: {exc}", file=sys.stderr)
+            return 1
 
     try:
         if mode == "assignment":

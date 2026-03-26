@@ -19,8 +19,8 @@ from app.services.analyzer import AnalyzerError
 from app.services.audit_pipeline import run_landing_audit, run_visual_audit
 from app.services.audit_storage import save_audit_report
 from app.services.parser import ParsingError
+from app.services.readable_export import build_landing_audit_readable_markdown
 from app.services.report_builder import format_visual_audit_readable
-from main import _build_readable_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ def _format_web_result(report: dict[str, Any], output_format: str, lang: str, mo
         return json.dumps(report, ensure_ascii=False, indent=2)
     if mode == "visual":
         return format_visual_audit_readable(report, code)
-    return _build_readable_markdown(report)
+    return build_landing_audit_readable_markdown(report)
 
 
 def _run_pipeline(url: str, mode: str, preset: str, lang_code: str) -> dict[str, Any]:

@@ -213,6 +213,57 @@ Full mode добавляет поля `language` (effective lang) и `preset` в
 
 При **`--output-format readable`** (или `--save-report` с тем же форматом) для `preset=craftum` в текст добавляется секция **«Рекомендуемые блоки для добавления»** (содержимое из `craftum_block_plan`). Если массив пуст, в этой секции будет краткое пояснение; для других пресетов отдельная секция не выводится.
 
+## Baseline snapshot (`--baseline`)
+
+**Контрольная точка «до изменений»** на диске: один запуск выполняет три независимых сценария для того же URL и складывает артефакты в каталог (по умолчанию `<AUDITS_DIR>/baseline`, см. `AUDITS_DIR` и `app.core.paths`). Дальше эту папку подхватывает **full-audit / compare** (см. следующий раздел).
+
+**Что выполняется:**
+
+1. Content-аудит с пресетом **`general`** → `content.json` + человекочитаемый **`content_readable.md`** (тот же markdown, что у CLI `--save-report` / `readable_export.build_landing_audit_readable_markdown`).
+2. Аудит с пресетом **`craftum`** → `craftum.json`.
+3. **Visual**-аудит → `visual.json`. При ошибке файл всё равно создаётся как JSON-заглушка (`baseline_status`, `error_message`, `error_type`); общий прогон не прерывается.
+
+**Manifest:** `manifest.json` — `url`, `created_at` (UTC ISO), `modes_run`, `artifacts` (пути относительно корня проекта, если каталог внутри репозитория), `status` (`ok` | `partial` | `failed`), `limitations`, `notes`, `project_version`, опционально `git_commit` (best-effort `git rev-parse --short HEAD`), плюс `modes_detail` по каждому режиму.
+
+**Запуск:**
+
+```bash
+python main.py --url "https://example.com/" --baseline
+# свой каталог (относительный путь — от корня проекта):
+python main.py --url "https://example.com/" --baseline --baseline-dir audits/my-baseline
+```
+
+Код выхода: **0**, если сохранён хотя бы один успешный режим или только **partial** (например, упал visual); **1**, если все три режима завершились с ошибкой (`failed`), либо при сбое оркестратора до записи manifest.
+
+## Full-audit / compare к baseline (`--full-audit` / `--compare-baseline`)
+
+Сравнивает **текущее состояние URL** с сохранённым baseline: заново гоняются content (`general`), craftum и visual для этого URL, затем строится эвристическое сравнение (issues, риски, missing blocks, scores из `diff_service`, visual issue counts), плюс человекочитаемый отчёт.
+
+**Артефакты по умолчанию** в `<AUDITS_DIR>/compare` (или `--compare-dir`):
+
+| Файл | Назначение |
+|------|------------|
+| `current_content.json` | Текущий content-аудит |
+| `current_content_readable.md` | Readable для content |
+| `current_craftum.json` | Текущий craftum (или заглушка при ошибке) |
+| `current_visual.json` | Текущий visual или заглушка |
+| `comparison.json` | Итог сравнения (`overall_change`, `changes`, `conversion_assessment`, `block_assessment`, …) |
+| `comparison_readable.md` | Отчёт для человека |
+| `manifest.json` | Метаданные прогона, ссылки на baseline и артефакты |
+
+**Baseline:** те же требования, что при съёмке baseline: `manifest.json`, `content.json`, `craftum.json`, `visual.json` (допустима заглушка visual). Путь: `--baseline-dir` или по умолчанию `<AUDITS_DIR>/baseline`.
+
+```bash
+python main.py --url "https://example.com/" --full-audit
+# синоним:
+python main.py --url "https://example.com/" --compare-baseline
+python main.py --url "https://example.com/" --full-audit --baseline-dir audits/baseline --compare-dir audits/full_audit
+```
+
+**Важно:** сравнение **не детерминированное LLM-зеркало** — используются устойчивые эвристики по полям JSON. Частичный сбой текущего visual/craftum даёт `status: partial` в `comparison.json`, но сравнение по content обычно всё равно создаётся.
+
+**Код выхода:** **0** при успешной валидации baseline и завершённом content-прогоне; **1** если baseline битый/отсутствует или не удалось выполнить текущий content-аудит.
+
 ## Installation
 
 ```bash
@@ -297,6 +348,10 @@ curl -s -X POST http://127.0.0.1:8000/audit -H "Content-Type: application/json" 
 - `llm provider` — вызов OpenAI, извлечение JSON
 - `exporter` — сохранение JSON (full mode)
 - `report_builder` — человекочитаемое представление (включая секцию рекомендуемых блоков для `preset=craftum`)
+- `readable_export` — markdown-экспорт landing-отчёта (CLI, web UI, baseline `content_readable.md`)
+- `baseline_runner` — оркестрация baseline-снимка (`--baseline`)
+- `compare_heuristics` — эвристики сравнения baseline vs текущий отчёт
+- `compare_runner` — full-audit: текущие аудиты + `comparison.json` / readable (`--full-audit`)
 - `assignment_formatter` — 5 строк рекомендаций (assignment mode)
 - `interfaces/api` — минимальный FastAPI (`GET /health`, `GET /meta/capabilities`, `POST /audit`, CORS)
 - `core/lang` — нормализация кода языка (`normalize_lang`)

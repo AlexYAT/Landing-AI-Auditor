@@ -79,4 +79,30 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="Save analysis to PATH (JSON or markdown-like text per --output-format)",
     )
+    parser.add_argument(
+        "--baseline",
+        action="store_true",
+        help="Run baseline snapshot: content + craftum + visual into <AUDITS_DIR>/baseline (requires --url; no compare yet)",
+    )
+    parser.add_argument(
+        "--baseline-dir",
+        dest="baseline_dir",
+        default=None,
+        metavar="PATH",
+        help="Baseline output directory (default: <AUDITS_DIR>/baseline; relative paths are under project root)",
+    )
+    parser.add_argument(
+        "--full-audit",
+        "--compare-baseline",
+        dest="full_audit",
+        action="store_true",
+        help="Compare current site to saved baseline: refresh audits + comparison artifacts (alias: --compare-baseline)",
+    )
+    parser.add_argument(
+        "--compare-dir",
+        dest="compare_dir",
+        default=None,
+        metavar="PATH",
+        help="Compare/full-audit output directory (default: <AUDITS_DIR>/compare)",
+    )
     return parser
